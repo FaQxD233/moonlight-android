@@ -53,6 +53,7 @@ import com.limelight.LimeLog;
 import com.limelight.nvstream.ConnectionContext;
 import com.limelight.nvstream.http.PairingManager.PairState;
 import com.limelight.nvstream.jni.MoonBridge;
+import com.limelight.tailnet.TailnetSocketFactory;
 import com.limelight.utils.RazerUtils;
 
 import okhttp3.ConnectionPool;
@@ -187,6 +188,9 @@ public class NvHTTP {
                 .readTimeout(READ_TIMEOUT, TimeUnit.MILLISECONDS)
                 .connectTimeout(LONG_CONNECTION_TIMEOUT, TimeUnit.MILLISECONDS)
                 .proxy(Proxy.NO_PROXY)
+                // Tailnet hosts go through the embedded Tailscale node when it's enabled
+                .socketFactory(TailnetSocketFactory.INSTANCE)
+                .dns(TailnetSocketFactory.DNS)
                 .build();
 
         httpClientShortConnectTimeout = httpClientLongConnectTimeout.newBuilder()

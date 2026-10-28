@@ -1,0 +1,61 @@
+name: Build APK
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: tailnet/go.mod
+          cache: false
+
+      # Without a stable debug key every build has a new signature and can't be installed over the last one
+      - name: Reuse the debug signing key
+        uses: actions/cache@v6
+        with:
+          path: ~/.android/debug.keystore
+          key: debug-keystore
+
+      - name: Install the NDK used by the app
+        run: echo y | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;27.0.12077973" > /dev/null
+
+      - name: Build the embedded Tailscale bindings
+        run: ANDROID_NDK_HOME="$ANDROID_HOME/ndk/27.0.12077973" bash tailnet/build.sh
+
+      - name: Build APK
+        run: ./gradlew --no-daemon -PincludeKishiHaptics=false -PincludeStereo3dAi=false :app:assembleNonRootDebug
+
+      # Fails the build if Gradle silently left the embedded Tailscale out
+      - name: Check the APK contains the Tailscale bindings
+        run: |
+          apk=$(ls app/build/outputs/apk/nonRoot/debug/*.apk)
+          ls -l "$apk" app/libs-tailnet/tailnet.aar
+          unzip -l "$apk" | grep 'lib/arm64-v8a/libgojni.so'
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: moonlight-nonRoot-debug
+          path: app/build/outputs/apk/nonRoot/debug/*.apk
+          if-no-files-found: error
+
+      # The resolved module versions, to pin by committing them
+      - uses: actions/upload-artifact@v7
+        with:
+          name: tailnet-go-modules
+          path: |
+            tailnet/go.mod
+            tailnet/go.sum

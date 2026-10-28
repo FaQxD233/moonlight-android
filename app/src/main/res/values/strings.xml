@@ -551,4 +551,27 @@
     <string name="virtual_display_off">Off</string>
     <string name="virtual_display_extend">Extended mode</string>
     <string name="virtual_display_only">Virtual display only</string>
+    <!-- Built-in Tailscale -->
+    <string name="tailnet_category">Tailscale</string>
+    <string name="tailnet_enable_title">Built-in Tailscale</string>
+    <string name="tailnet_enable_summary">Reach hosts at Tailscale addresses (100.x or *.ts.net) through a node built into this app, without the Tailscale app or a VPN</string>
+    <string name="tailnet_account_title">Tailscale account</string>
+    <string name="tailnet_account_summary">Log in, check the connection or log out</string>
+    <string name="tailnet_control_url_title">Control server (optional)</string>
+    <string name="tailnet_control_url_summary">Only for Headscale; leave empty to use Tailscale. Changing it logs this device out</string>
+    <string name="tailnet_unavailable">Built-in Tailscale isn\'t available in this build or on this device (it needs an arm64 device with Android 8.0 or later)</string>
+    <string name="tailnet_enable_first">Turn on Built-in Tailscale first</string>
+    <string name="tailnet_connecting">Connecting to Tailscale…</string>
+    <string name="tailnet_connected_title">Connected to Tailscale</string>
+    <string name="tailnet_connected_message">This device: %1$s\nTailscale address: %2$s</string>
+    <string name="tailnet_login_title">Log in to Tailscale</string>
+    <string name="tailnet_login_message">Log in to your Tailscale account in the browser to add this device to your tailnet, then come back here to check the connection.</string>
+    <string name="tailnet_open_browser">Open browser</string>
+    <string name="tailnet_use_auth_key">Use auth key</string>
+    <string name="tailnet_auth_key_hint">tskey-auth-…</string>
+    <string name="tailnet_logout">Log out</string>
+    <string name="tailnet_logout_confirm">This device will leave the tailnet, and you\'ll need to log in again to use it.</string>
+    <string name="tailnet_logged_out">Logged out of Tailscale</string>
+    <string name="tailnet_error">Couldn\'t connect to Tailscale: %1$s</string>
+    <string name="tailnet_timeout">Tailscale didn\'t connect in time (state: %1$s). Check the network and try again.</string>
 </resources>

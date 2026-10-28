@@ -45,6 +45,7 @@ import com.limelight.binding.video.MediaCodecHelper;
 import com.limelight.ui.AppDialog;
 import com.limelight.utils.PairingBackupManager;
 import com.limelight.log.StreamLogStore;
+import com.limelight.tailnet.TailnetAccountDialog;
 import com.limelight.utils.Dialog;
 import com.limelight.utils.FileUriUtils;
 import com.limelight.utils.UiHelper;
@@ -1079,6 +1080,10 @@ public class StreamSettings extends Activity {
                         + new java.text.SimpleDateFormat("yyyyMMdd-HHmmss", java.util.Locale.US)
                                 .format(new java.util.Date()) + ".zip");
                 startActivityForResult(intent, WRITE_BACKUP_REQUEST_CODE);
+                return true;
+            });
+            findPreference("tailnet_account").setOnPreferenceClickListener(preference -> {
+                TailnetAccountDialog.show(getActivity());
                 return true;
             });
             EditTextPreference bitrateEditPre= (EditTextPreference) findPreference("edit_diy_bitrate");

@@ -429,4 +429,27 @@
     <string name="virtual_display_off">关闭</string>
     <string name="virtual_display_extend">扩展模式</string>
     <string name="virtual_display_only">仅虚拟显示器</string>
+    <!-- 内置 Tailscale -->
+    <string name="tailnet_category">Tailscale</string>
+    <string name="tailnet_enable_title">内置 Tailscale</string>
+    <string name="tailnet_enable_summary">连接 Tailscale 地址（100.x 或 *.ts.net）的主机时，由本应用内置的节点直接接入，无需安装或打开 Tailscale App，也不占用 VPN</string>
+    <string name="tailnet_account_title">Tailscale 账号</string>
+    <string name="tailnet_account_summary">登录、查看连接状态或退出登录</string>
+    <string name="tailnet_control_url_title">控制服务器（可选）</string>
+    <string name="tailnet_control_url_summary">仅使用 Headscale 时填写，留空使用 Tailscale 官方服务器；修改后本机会退出登录</string>
+    <string name="tailnet_unavailable">当前版本或设备不支持内置 Tailscale（需要 Android 8.0 以上的 arm64 设备）</string>
+    <string name="tailnet_enable_first">请先开启“内置 Tailscale”</string>
+    <string name="tailnet_connecting">正在连接 Tailscale…</string>
+    <string name="tailnet_connected_title">Tailscale 已连接</string>
+    <string name="tailnet_connected_message">本机节点：%1$s\nTailscale 地址：%2$s</string>
+    <string name="tailnet_login_title">登录 Tailscale</string>
+    <string name="tailnet_login_message">在浏览器中登录你的 Tailscale 账号，把这台设备加入 tailnet，完成后回到这里查看连接状态。</string>
+    <string name="tailnet_open_browser">打开浏览器</string>
+    <string name="tailnet_use_auth_key">使用 Auth Key</string>
+    <string name="tailnet_auth_key_hint">tskey-auth-…</string>
+    <string name="tailnet_logout">退出登录</string>
+    <string name="tailnet_logout_confirm">退出后本机会离开 tailnet，再次使用需要重新登录。</string>
+    <string name="tailnet_logged_out">已退出 Tailscale</string>
+    <string name="tailnet_error">无法连接 Tailscale：%1$s</string>
+    <string name="tailnet_timeout">Tailscale 连接超时（当前状态：%1$s），请检查网络后重试。</string>
 </resources>

@@ -26,3 +26,8 @@
 # jMDNS
 -dontwarn javax.jmdns.impl.DNSCache
 -dontwarn org.slf4j.**
+
+# Embedded Tailscale (gomobile): Go calls these through JNI, and the bridge is loaded by name
+-keep class go.** { *; }
+-keep class com.limelight.gobridge.** { *; }
+-keep class com.limelight.tailnet.GoTailnetBridge { *; }

@@ -2,4 +2,6 @@
 <full-backup-content>
     <!-- Don't sync preferences because it often contains device-specific data -->
     <exclude domain="sharedpref" path="."/>
+    <!-- The embedded Tailscale node's keys belong to this device -->
+    <exclude domain="file" path="tailnet/"/>
 </full-backup-content>

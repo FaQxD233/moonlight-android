@@ -39,6 +39,7 @@ import com.limelight.nvstream.http.NvHTTP;
 import com.limelight.nvstream.http.PairingManager;
 import com.limelight.nvstream.input.MouseButtonPacket;
 import com.limelight.nvstream.jni.MoonBridge;
+import com.limelight.tailnet.TailnetManager;
 
 public class NvConnection {
     // Context parameters
@@ -55,6 +56,8 @@ public class NvConnection {
     {
         this.appContext = appContext;
         this.cryptoProvider = cryptoProvider;
+        // Lets this connection's HTTP requests reach tailnet hosts even before any other screen ran
+        TailnetManager.get(appContext);
         this.uniqueId = uniqueId;
 
         this.context = new ConnectionContext();
@@ -155,7 +158,7 @@ public class NvConnection {
                     " tokenPrefix=" + tokenPrefixHex(context.negotiatedMicToken, 4));
 
             micUplinkConnection = new MicUplinkConnection(
-                    context.serverAddress.address,
+                    TailnetManager.get(appContext).prepareUdp(context.serverAddress.address, context.negotiatedMicPort),
                     context.negotiatedMicPort,
                     context.negotiatedMicSessionId,
                     context.negotiatedMicToken,
@@ -225,6 +228,11 @@ public class NvConnection {
     }
 
     private int detectServerConnectionType() {
+        // The embedded Tailscale relays always cross the internet (and Tailscale's smaller MTU)
+        if (TailnetManager.get(appContext).shouldRoute(context.serverAddress.address)) {
+            return StreamConfiguration.STREAM_CFG_REMOTE;
+        }
+
         ConnectivityManager connMgr = (ConnectivityManager) appContext.getSystemService(Context.CONNECTIVITY_SERVICE);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             Network activeNetwork = connMgr.getActiveNetwork();
@@ -508,6 +516,18 @@ public class NvConnection {
                     return;
                 }
 
+                String streamAddress;
+                try {
+                    // Tailnet hosts are reached through local relays of the embedded Tailscale node
+                    streamAddress = TailnetManager.get(appContext).prepareStream(context.serverAddress.address,
+                            context.serverAddress.port, context.httpsPort, context.rtspSessionUrl);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                    context.connListener.displayMessage(e.getMessage());
+                    context.connListener.stageFailed(appName, 0, 0);
+                    return;
+                }
+
                 ByteBuffer ib = ByteBuffer.allocate(16);
                 ib.putInt(context.riKeyId);
 
@@ -525,7 +545,7 @@ public class NvConnection {
                 // we must not invoke that functionality in parallel.
                 synchronized (MoonBridge.class) {
                     MoonBridge.setupBridge(videoDecoderRenderer, audioRenderer, connectionListener);
-                    int ret = MoonBridge.startConnection(context.serverAddress.address,
+                    int ret = MoonBridge.startConnection(streamAddress,
                             context.serverAppVersion, context.serverGfeVersion, context.rtspSessionUrl,
                             context.serverCodecModeSupport,
                             context.negotiatedWidth, context.negotiatedHeight,

@@ -46,6 +46,9 @@ app/.externalNativeBuild/
 # Optional private AI 2D-to-3D implementation
 /private/3d-sbs-android/
 
+# Embedded Tailscale bindings built by tailnet/build.sh
+/app/libs-tailnet/
+
 # Local project documentation
 /docs/
 

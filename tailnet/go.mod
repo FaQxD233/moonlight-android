@@ -1,0 +1,5 @@
+module limelight/tailnet
+
+go 1.27.3
+
+require tailscale.com v1.104.4

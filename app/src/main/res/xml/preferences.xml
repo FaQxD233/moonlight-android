@@ -781,6 +781,31 @@
     </PreferenceCategory>
 
 
+    <PreferenceCategory
+        android:key="category_tailnet"
+        android:title="@string/tailnet_category">
+
+        <CheckBoxPreference
+            android:key="checkbox_enable_tailnet"
+            android:title="@string/tailnet_enable_title"
+            android:summary="@string/tailnet_enable_summary"
+            android:defaultValue="false" />
+
+        <Preference
+            android:key="tailnet_account"
+            android:title="@string/tailnet_account_title"
+            android:summary="@string/tailnet_account_summary" />
+
+        <EditTextPreference
+            android:key="edit_tailnet_control_url"
+            android:title="@string/tailnet_control_url_title"
+            android:summary="@string/tailnet_control_url_summary"
+            android:dialogTitle="@string/tailnet_control_url_title"
+            android:inputType="textUri"
+            android:singleLine="true" />
+
+    </PreferenceCategory>
+
     <!-- Additional persistent controls also available through the in-stream quick menu. -->
     <PreferenceCategory android:key="category_settings_additional" android:title="其他配置">
         <CheckBoxPreference

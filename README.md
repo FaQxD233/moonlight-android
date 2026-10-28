@@ -24,6 +24,7 @@
 - 全新首页与游戏菜单，支持主机卡片、列表切换，集中查看设备、手柄和连接状态。
 - 自定义分辨率、帧率与码率，按设备和网络环境调整串流参数。
 - 息屏、切换后台后恢复串流；后台连接中断时，返回应用可自动尝试回连。
+- 内置 Tailscale（可选）：连接 tailnet 上的主机时，无需在手机上安装或打开 Tailscale App，也不占用 VPN。
 - 支持横竖屏切换、画面缩放与顶部对齐，适应手机、平板和折叠屏的操作习惯。
 
 ### 画面与外接显示
@@ -91,6 +92,8 @@ git submodule update --init --recursive
 ```
 
 Windows PowerShell 使用 `./gradlew.bat` 执行相同参数。APK 输出到 `app/build/outputs/apk/nonRoot/debug/`。可选私有模块未包含时，对应的专用触觉反馈或 AI 3D 能力不随构建提供。
+
+内置 Tailscale 同样是可选组件：在 Linux 或 macOS 上安装 Go（版本见 `tailnet/go.mod`）后运行 `tailnet/build.sh`，生成 `app/libs-tailnet/tailnet.aar` 再按上面的命令构建；没有这个文件时，该功能不会编译进 APK。推送到 GitHub 后，Actions 会自动完成整个构建并上传 APK。
 
 ## 交流与贡献
 

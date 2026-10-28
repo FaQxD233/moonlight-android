@@ -23,6 +23,7 @@ import com.limelight.nvstream.http.NvHTTP;
 import com.limelight.nvstream.http.PairingManager;
 import com.limelight.nvstream.mdns.MdnsComputer;
 import com.limelight.nvstream.mdns.MdnsDiscoveryListener;
+import com.limelight.tailnet.TailnetManager;
 import com.limelight.utils.CacheHelper;
 import com.limelight.utils.NetHelper;
 import com.limelight.utils.ServerHelper;
@@ -847,6 +848,9 @@ public class ComputerManagerService extends Service {
 
     @Override
     public void onCreate() {
+        // Bring the embedded Tailscale node up early so tailnet hosts answer the first poll
+        TailnetManager.get(this).startIfEnabledAsync();
+
         // Bind to the discovery service
         bindService(new Intent(this, DiscoveryService.class),
                 discoveryServiceConnection, Service.BIND_AUTO_CREATE);
