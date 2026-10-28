@@ -17,8 +17,9 @@ go mod tidy
 gomobile init
 
 mkdir -p ../app/libs-tailnet
-# arm64 only to keep the APK small (other ABIs run without the feature). The app's
-# minSdk is 21, and 16 KB page alignment keeps the library loadable on newer devices.
-gomobile bind -target android/arm64 -androidapi 21 -javapkg com.limelight.gobridge \
+# arm64 only by default to keep the APK small (other ABIs run without the feature);
+# TAILNET_TARGET adds others, such as android/amd64 for an emulator. The app's minSdk
+# is 21, and 16 KB page alignment keeps the library loadable on newer devices.
+gomobile bind -target "${TAILNET_TARGET:-android/arm64}" -androidapi 21 -javapkg com.limelight.gobridge \
     -ldflags "-s -w -linkmode=external -extldflags=-Wl,-z,max-page-size=16384" \
     -o ../app/libs-tailnet/tailnet.aar .

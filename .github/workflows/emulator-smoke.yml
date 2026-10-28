@@ -1,0 +1,55 @@
+name: Emulator smoke test
+
+# Starts the app with built-in Tailscale enabled on an emulator and prints what happened.
+on:
+  workflow_dispatch:
+  push:
+    branches: ['ci/**']
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: tailnet/go.mod
+          cache: false
+
+      - name: Install the NDK used by the app
+        run: echo y | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;27.0.12077973" > /dev/null
+
+      - name: Build the embedded Tailscale bindings for arm64 and x86_64
+        run: ANDROID_NDK_HOME="$ANDROID_HOME/ndk/27.0.12077973" TAILNET_TARGET=android/arm64,android/amd64 bash tailnet/build.sh
+
+      - name: Build APK
+        run: ./gradlew --no-daemon -PincludeKishiHaptics=false -PincludeStereo3dAi=false :app:assembleNonRootDebug
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Start the app on an emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          script: bash .github/emulator-smoke.sh
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: emulator-logcat
+          path: logcat*.txt
