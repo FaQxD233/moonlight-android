@@ -1929,7 +1929,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
         }
         else {
             //强制体感模拟右摇杆
-            if(PreferenceConfiguration.readPreferences(activityContext).gameForceGyro){
+            if(prefConfig.gameForceGyro){
                 sensorLeftTrigger=leftTrigger;
             }
             conn.sendControllerInput(controllerNumber, getActiveControllerMask(),
@@ -3079,7 +3079,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
             // If we didn't find a matching device, it must be the on-screen
             // controls that triggered the rumble. Vibrate the device if
             // the user has requested that behavior.
-            if (!foundMatchingDevice && prefConfig.onscreenController && !prefConfig.onlyL3R3 && PreferenceConfiguration.readPreferences(activityContext).vibrateOsc) {
+            if (!foundMatchingDevice && prefConfig.onscreenController && !prefConfig.onlyL3R3 && prefConfig.vibrateOsc) {
                 rumbleSingleVibrator(deviceVibrator, lowFreqMotor, highFreqMotor);
                 if (hasRumbleAmplitude(lowFreqMotor, highFreqMotor)) {
                     addOutputDevice(outputDevices, "手机");
@@ -3280,9 +3280,9 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
                     }
                 }
                 //强制体感
-                if (PreferenceConfiguration.readPreferences(activityContext).gameForceGyro) {
+                if (prefConfig.gameForceGyro) {
                     //按下左扳机生效
-                    if((PreferenceConfiguration.readPreferences(activityContext).gameForceGyroLeftTrigger && (sensorLeftTrigger & 0xFF) < 200 )){
+                    if((prefConfig.gameForceGyroLeftTrigger && (sensorLeftTrigger & 0xFF) < 200 )){
                         context.rightStickX = 0x0000;
                         context.rightStickY = 0x0000;
                         sendControllerInputPacket(context);
@@ -3306,7 +3306,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
                             gyroY = sensorEvent.values[0];
                         }
                         // 处理用户设置的反转
-                        if (PreferenceConfiguration.readPreferences(activityContext).gameForceGyroXYSwitch) {
+                        if (prefConfig.gameForceGyroXYSwitch) {
                             float temp = gyroX;
                             gyroX = gyroY;
                             gyroY = temp;
@@ -3368,7 +3368,7 @@ public class ControllerHandler implements InputManager.InputDeviceListener, UsbD
         // 2. 响应曲线：1.5 次方比 2.0 次方在小范围更灵敏，不会“肉”
         float curved = (float) Math.pow(normalized, 1.5);
 
-        float GYRO_SENSITIVITY=PreferenceConfiguration.readPreferences(activityContext).gameForceGyroSensitivity*0.01f;
+        float GYRO_SENSITIVITY=prefConfig.gameForceGyroSensitivity*0.01f;
 
         // 3. 基础输出补偿：只要超过死区，就给一个 0.05 的起步分，防止游戏识别不到
         float out = (curved + 0.05f) * sensitivity * GYRO_SENSITIVITY;

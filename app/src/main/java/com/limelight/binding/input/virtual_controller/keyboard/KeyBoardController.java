@@ -523,7 +523,7 @@ public class KeyBoardController {
 //                LimeLog.info("axi->当前："+new Gson().toJson(beanList.get(tag)));
                 updateItem(tag.index);
             });
-            element.setOpacity(PreferenceConfiguration.readPreferences(context).oscOpacity);
+            element.setOpacity(prefConfig.oscOpacity);
             addElement(element,bean.getmLeft(),bean.getmTop(),bean.getWidth(),bean.getHeight());
         }
     }
@@ -683,6 +683,11 @@ public class KeyBoardController {
 
     public List<keyBoardVirtualControllerElement> getElements() {
         return elements;
+    }
+
+    // Shared with Game and the in-stream menu, so changes made there are visible immediately
+    public PreferenceConfiguration getPrefConfig() {
+        return prefConfig;
     }
 
     private static final void _DBG(String text) {

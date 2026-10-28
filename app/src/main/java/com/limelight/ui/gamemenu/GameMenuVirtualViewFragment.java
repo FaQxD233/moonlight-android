@@ -449,7 +449,7 @@ public class GameMenuVirtualViewFragment extends BaseGameMenuDialog implements V
             PreferenceManager.getDefaultSharedPreferences(getActivity())
                     .edit()
                     .putInt("seekbar_keyboard_axi_height",progress)
-                    .commit();
+                    .apply();
             initViewHeight();
         }
         if(seekBar==sb_adjust_keyboard_all){
@@ -457,7 +457,7 @@ public class GameMenuVirtualViewFragment extends BaseGameMenuDialog implements V
             PreferenceManager.getDefaultSharedPreferences(getActivity())
                     .edit()
                     .putInt("seekbar_keyboard_axi_opacity",progress)
-                    .commit();
+                    .apply();
             initViewAdjust();
         }
         if(seekBar==sb_adjust_virtual_gamepad){
@@ -465,7 +465,7 @@ public class GameMenuVirtualViewFragment extends BaseGameMenuDialog implements V
             PreferenceManager.getDefaultSharedPreferences(getActivity())
                     .edit()
                     .putInt(PreferenceConfiguration.OSC_OPACITY_PREF_STRING,progress)
-                    .commit();
+                    .apply();
             initViewAdjust();
         }
 
@@ -474,7 +474,7 @@ public class GameMenuVirtualViewFragment extends BaseGameMenuDialog implements V
             PreferenceManager.getDefaultSharedPreferences(getActivity())
                     .edit()
                     .putInt("virtualGamePadScaleFactor",progress)
-                    .commit();
+                    .apply();
             initViewAdjust();
         }
 

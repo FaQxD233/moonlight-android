@@ -554,8 +554,6 @@ public class NvConnection {
     
     public void sendMouseMove(final short deltaX, final short deltaY)
     {
-        LimeLog.info("sendMousePosition==1-"+deltaX+","+deltaY);
-
         if (!isMonkey) {
             MoonBridge.sendMouseMove(deltaX, deltaY);
         }
@@ -570,8 +568,6 @@ public class NvConnection {
 
     public void sendMouseMoveAsMousePosition(short deltaX, short deltaY, short referenceWidth, short referenceHeight)
     {
-        LimeLog.info("sendMousePosition==3-"+deltaX);
-
         if (!isMonkey) {
             MoonBridge.sendMouseMoveAsMousePosition(deltaX, deltaY, referenceWidth, referenceHeight);
         }
@@ -579,7 +575,6 @@ public class NvConnection {
 
     public void sendMouseButtonDown(final byte mouseButton)
     {
-        LimeLog.info("sendMousePosition==4");
         if (!isMonkey) {
             MoonBridge.sendMouseButton(MouseButtonPacket.PRESS_EVENT, mouseButton);
         }
@@ -587,7 +582,6 @@ public class NvConnection {
     
     public void sendMouseButtonUp(final byte mouseButton)
     {
-        LimeLog.info("sendMousePosition==5");
         if (!isMonkey) {
             MoonBridge.sendMouseButton(MouseButtonPacket.RELEASE_EVENT, mouseButton);
         }

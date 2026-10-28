@@ -187,7 +187,7 @@ public class KeyBoardTouchPadButton extends keyBoardVirtualControllerElement {
         // 5. 绘制内容 (图标或文字)
         if (icon != -1) {
             // --- 图标模式 ---
-            int oscOpacity = PreferenceConfiguration.readPreferences(getContext()).oscOpacity;
+            int oscOpacity = virtualController.getPrefConfig().oscOpacity;
             Drawable d = getResources().getDrawable(isPressed() ?
                     R.mipmap.face_ps_touchpad_press : R.mipmap.face_ps_touchpad_normal);
             // 动态计算 Padding：保持图标在中间，不紧贴边缘
