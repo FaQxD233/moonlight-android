@@ -23,12 +23,19 @@ jobs:
           go-version-file: tailnet/go.mod
           cache: false
 
-      # Without a stable debug key every build has a new signature and can't be installed over the last one
-      - name: Reuse the debug signing key
+      # Without a stable key every build has a new signature and can't be installed over the last one
+      - name: Restore the CI signing key
         uses: actions/cache@v6
         with:
-          path: ~/.android/debug.keystore
-          key: debug-keystore
+          path: ~/ci-debug.keystore
+          key: ci-debug-keystore
+
+      # "android" is the standard debug keystore password, not a secret
+      - name: Create the CI signing key on first use
+        run: |
+          [ -f ~/ci-debug.keystore ] || keytool -genkeypair -keystore ~/ci-debug.keystore \
+            -storepass android -keypass android -alias androiddebugkey \
+            -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
 
       - name: Install the NDK used by the app
         run: echo y | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;27.0.12077973" > /dev/null
@@ -37,7 +44,13 @@ jobs:
         run: ANDROID_NDK_HOME="$ANDROID_HOME/ndk/27.0.12077973" bash tailnet/build.sh
 
       - name: Build APK
-        run: ./gradlew --no-daemon -PincludeKishiHaptics=false -PincludeStereo3dAi=false :app:assembleNonRootDebug
+        run: >
+          ./gradlew --no-daemon -PincludeKishiHaptics=false -PincludeStereo3dAi=false
+          -Pandroid.injected.signing.store.file=$HOME/ci-debug.keystore
+          -Pandroid.injected.signing.store.password=android
+          -Pandroid.injected.signing.key.alias=androiddebugkey
+          -Pandroid.injected.signing.key.password=android
+          :app:assembleNonRootDebug
 
       # Fails the build if Gradle silently left the embedded Tailscale out
       - name: Check the APK contains the Tailscale bindings
@@ -45,6 +58,8 @@ jobs:
           apk=$(ls app/build/outputs/apk/nonRoot/debug/*.apk)
           ls -l "$apk" app/libs-tailnet/tailnet.aar
           unzip -l "$apk" | grep 'lib/arm64-v8a/libgojni.so'
+          # The signing fingerprint should stay the same from build to build
+          keytool -printcert -jarfile "$apk" | grep -m1 "SHA256:" || true
 
       - uses: actions/upload-artifact@v7
         with:
