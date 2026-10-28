@@ -199,7 +199,10 @@ public final class TailnetManager {
         if (bridge == null) {
             return Status.failed(appContext.getString(R.string.tailnet_unavailable));
         }
-        return Status.parse(bridge.statusJson());
+        Status status = Status.parse(bridge.statusJson());
+        // Errors from the node are raw; errors thrown by this class already carry the prefix
+        return status.error == null ? status
+                : Status.failed(appContext.getString(R.string.tailnet_error, status.error));
     }
 
     /** Starts the node if needed and waits until it is running or needs the user to log in. */

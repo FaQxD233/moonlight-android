@@ -15,9 +15,6 @@ import (
 	"sync"
 	"time"
 
-	// Lets tsnet run under an Android app UID: a synthetic interface list (the
-	// app can't enumerate interfaces), DNS without resolv.conf and system CAs.
-	_ "tailscale.com/feature/androidbin"
 	"tailscale.com/logtail"
 	"tailscale.com/tsnet"
 )

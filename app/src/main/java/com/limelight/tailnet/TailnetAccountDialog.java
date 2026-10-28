@@ -69,7 +69,7 @@ public final class TailnetAccountDialog {
         }
         else {
             String message = status.error != null
-                    ? activity.getString(R.string.tailnet_error, status.error)
+                    ? status.error
                     : activity.getString(R.string.tailnet_timeout, status.state);
             AppDialog.showMessage(activity, activity.getString(R.string.tailnet_account_title), message, null, null);
         }
