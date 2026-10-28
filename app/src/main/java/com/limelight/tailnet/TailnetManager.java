@@ -4,18 +4,23 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.SystemClock;
 import android.preference.PreferenceManager;
 
 import com.limelight.BuildConfig;
 import com.limelight.LimeLog;
 import com.limelight.R;
+import com.limelight.utils.CacheHelper;
 
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -40,6 +45,13 @@ public final class TailnetManager {
     private static final String BRIDGE_CLASS = "com.limelight.tailnet.GoTailnetBridge";
     private static final String STATE_DIR = "tailnet";
     private static final long STATUS_POLL_MS = 500;
+    // Set while a start hasn't yet survived START_SURVIVAL_MS; still set at launch means it crashed
+    private static final String PREF_START_PENDING = "tailnet_start_pending";
+    private static final String PREF_CRASHED = "tailnet_crashed";
+    private static final long START_SURVIVAL_MS = 30000;
+    private static final String CRASH_LOG = "tailnet-crash.txt";
+    private static final int MAX_CRASH_REPORT_CHARS = 64 * 1024;
+    private static final Handler MAIN_HANDLER = new Handler(Looper.getMainLooper());
 
     private static volatile TailnetManager instance;
 
@@ -56,6 +68,15 @@ public final class TailnetManager {
         this.appContext = appContext;
         this.prefs = PreferenceManager.getDefaultSharedPreferences(appContext);
         this.bridge = loadBridge();
+        if (bridge != null) {
+            disableIfLastStartCrashed();
+            try {
+                bridge.setCrashLog(crashLog().getAbsolutePath());
+            }
+            catch (Exception e) {
+                LimeLog.warning("Embedded Tailscale crash log unavailable: " + e.getMessage());
+            }
+        }
         prefs.registerOnSharedPreferenceChangeListener(prefListener);
     }
 
@@ -89,6 +110,40 @@ public final class TailnetManager {
             LimeLog.warning("Embedded Tailscale unavailable: " + e);
             return null;
         }
+    }
+
+    // A start that never confirmed it survived took the whole app down, and every launch would
+    // crash again. Turn the feature off so the app opens; takeCrashReport() explains why.
+    private void disableIfLastStartCrashed() {
+        if (prefs.getBoolean(PREF_START_PENDING, false)) {
+            LimeLog.warning("Embedded Tailscale crashed the app while starting; turning it off");
+            prefs.edit().remove(PREF_START_PENDING).putBoolean(PREF_ENABLED, false)
+                    .putBoolean(PREF_CRASHED, true).commit();
+        }
+    }
+
+    /**
+     * Go's crash output from the start that crashed the app (empty if none was captured, as
+     * with native crashes), or null if it didn't crash. Reading it clears it.
+     */
+    public synchronized String takeCrashReport() {
+        if (!prefs.getBoolean(PREF_CRASHED, false)) {
+            return null;
+        }
+        prefs.edit().remove(PREF_CRASHED).apply();
+        File log = crashLog();
+        String report = "";
+        try {
+            if (log.isFile()) {
+                report = CacheHelper.readInputStreamToString(new FileInputStream(log)).trim();
+            }
+            // Truncate instead of deleting: Go keeps appending to its open descriptor
+            new FileOutputStream(log, false).close();
+        }
+        catch (IOException e) {
+            LimeLog.warning("Unable to read the embedded Tailscale crash log: " + e.getMessage());
+        }
+        return report.length() > MAX_CRASH_REPORT_CHARS ? report.substring(0, MAX_CRASH_REPORT_CHARS) : report;
     }
 
     public boolean isAvailable() {
@@ -159,13 +214,17 @@ public final class TailnetManager {
     }
 
     private synchronized void startBridge(String authKey) throws IOException {
+        // Written synchronously, since a crash would follow before an async write lands
+        prefs.edit().putBoolean(PREF_START_PENDING, true).commit();
         try {
             bridge.start(stateDir(), nodeHostname(), prefs.getString(PREF_CONTROL_URL, "").trim(), authKey);
             started = true;
         }
         catch (Exception e) {
+            prefs.edit().remove(PREF_START_PENDING).apply();
             throw new IOException(appContext.getString(R.string.tailnet_error, e.getMessage()), e);
         }
+        MAIN_HANDLER.postDelayed(() -> prefs.edit().remove(PREF_START_PENDING).apply(), START_SURVIVAL_MS);
     }
 
     public synchronized void stop() {
@@ -336,6 +395,10 @@ public final class TailnetManager {
                 }
             });
         }
+    }
+
+    private File crashLog() {
+        return new File(appContext.getFilesDir(), CRASH_LOG);
     }
 
     private String stateDir() {

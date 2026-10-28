@@ -11,6 +11,11 @@ final class GoTailnetBridge implements TailnetBridge {
     }
 
     @Override
+    public void setCrashLog(String path) throws Exception {
+        Tailnet.setCrashLog(path);
+    }
+
+    @Override
     public void start(String stateDir, String hostname, String controlUrl, String authKey) throws Exception {
         Tailnet.start(stateDir, hostname, controlUrl, authKey);
     }

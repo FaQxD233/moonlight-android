@@ -2,6 +2,9 @@ package com.limelight.tailnet;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.ClipData;
+import android.content.ClipboardManager;
+import android.content.Context;
 import android.text.InputType;
 import android.text.TextUtils;
 import android.widget.EditText;
@@ -16,6 +19,8 @@ import java.io.IOException;
 /** Settings flow for logging the embedded Tailscale node in or out. */
 public final class TailnetAccountDialog {
     private static final long CONNECT_TIMEOUT_MS = 20000;
+    // The panic message and the first frames; the full report goes to the clipboard
+    private static final int CRASH_PREVIEW_CHARS = 600;
 
     private TailnetAccountDialog() {
     }
@@ -25,6 +30,11 @@ public final class TailnetAccountDialog {
         String title = activity.getString(R.string.tailnet_account_title);
         if (!tailnet.isAvailable()) {
             AppDialog.showMessage(activity, title, activity.getString(R.string.tailnet_unavailable), null, null);
+            return;
+        }
+        String crashReport = tailnet.takeCrashReport();
+        if (crashReport != null) {
+            showCrashReport(activity, crashReport);
             return;
         }
         if (!tailnet.isEnabled()) {
@@ -73,6 +83,24 @@ public final class TailnetAccountDialog {
                     : activity.getString(R.string.tailnet_timeout, status.state);
             AppDialog.showMessage(activity, activity.getString(R.string.tailnet_account_title), message, null, null);
         }
+    }
+
+    private static void showCrashReport(Activity activity, String report) {
+        String title = activity.getString(R.string.tailnet_crash_title);
+        if (report.isEmpty()) {
+            AppDialog.showMessage(activity, title, activity.getString(R.string.tailnet_crash_no_details), null, null);
+            return;
+        }
+        String preview = report.length() > CRASH_PREVIEW_CHARS
+                ? report.substring(0, CRASH_PREVIEW_CHARS) + "…" : report;
+        AppDialog.showMessage(activity, title,
+                activity.getString(R.string.tailnet_crash_message) + "\n\n" + preview,
+                activity.getString(R.string.tailnet_copy), () -> {
+                    ClipboardManager clipboard = (ClipboardManager) activity.getSystemService(Context.CLIPBOARD_SERVICE);
+                    clipboard.setPrimaryClip(ClipData.newPlainText(title, report));
+                    Toast.makeText(activity, R.string.tailnet_copied, Toast.LENGTH_SHORT).show();
+                },
+                activity.getString(R.string.dialog_action_close), null, false);
     }
 
     private static void confirmLogout(Activity activity, TailnetManager tailnet) {

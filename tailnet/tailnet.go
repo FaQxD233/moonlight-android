@@ -10,6 +10,7 @@ import (
 	"errors"
 	"log"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -36,6 +37,15 @@ func Start(dir, hostname, controlURL, authKey string) error {
 	}
 	// Keep this node's logs on the device instead of uploading them to log.tailscale.com.
 	logtail.Disable()
+	// tailscaled's fallbacks for its log directory ($HOME, the working directory,
+	// /data/local/tmp) are all unusable for an Android app, and logpolicy then panics
+	// with "no safe place found to store log state". Keep logs and temp files in dir.
+	tmp := filepath.Join(dir, "tmp")
+	if err := os.MkdirAll(tmp, 0o700); err != nil {
+		return err
+	}
+	os.Setenv("TS_LOGS_DIR", dir)
+	os.Setenv("TMPDIR", tmp)
 	s := &tsnet.Server{
 		Dir:        dir,
 		Hostname:   hostname,

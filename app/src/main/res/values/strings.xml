@@ -573,5 +573,10 @@
     <string name="tailnet_logout_confirm">This device will leave the tailnet, and you\'ll need to log in again to use it.</string>
     <string name="tailnet_logged_out">Logged out of Tailscale</string>
     <string name="tailnet_error">Couldn\'t connect to Tailscale: %1$s</string>
+    <string name="tailnet_crash_title">Built-in Tailscale crashed</string>
+    <string name="tailnet_crash_message">The app crashed while starting Built-in Tailscale, so it was turned off. Copy the details below to report the problem:</string>
+    <string name="tailnet_crash_no_details">The app crashed while starting Built-in Tailscale, so it was turned off. No details were captured (likely a native crash); adb logcat shows them.</string>
+    <string name="tailnet_copy">Copy</string>
+    <string name="tailnet_copied">Copied to the clipboard</string>
     <string name="tailnet_timeout">Tailscale didn\'t connect in time (state: %1$s). Check the network and try again.</string>
 </resources>
