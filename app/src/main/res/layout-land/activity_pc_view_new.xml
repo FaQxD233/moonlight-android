@@ -49,6 +49,7 @@
 
             <TextView
                 android:id="@+id/homeSelectedSummary"
+                android:foreground="?android:attr/selectableItemBackground"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="@dimen/home_land_host_header_gap"

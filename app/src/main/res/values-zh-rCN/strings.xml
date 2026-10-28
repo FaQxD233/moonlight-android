@@ -404,6 +404,8 @@
     <string name="home_host_actions">主机操作</string>
     <string name="home_host_pair">配对</string>
     <string name="home_host_view_apps">查看应用</string>
+    <string name="home_host_resume">继续串流</string>
+    <string name="home_host_wake">唤醒主机</string>
     <string name="home_host_more">%1$s 的更多操作</string>
     <string name="home_host_source_sunshine">Sunshine</string>
     <string name="home_host_source_gamestream">GameStream</string>

@@ -336,7 +336,9 @@ final class HomeHostAdapter extends RecyclerView.Adapter<HomeHostAdapter.HostVie
         }
         else if (details.state == ComputerDetails.State.OFFLINE) {
             statusRes = R.string.home_host_offline;
-            actionRes = R.string.home_host_actions;
+            actionRes = details.macAddress != null
+                    ? R.string.home_host_wake
+                    : R.string.home_host_actions;
             statusColor = color(holder.itemView, R.color.home_secondary_text);
         }
         else if (unpaired) {
@@ -355,7 +357,9 @@ final class HomeHostAdapter extends RecyclerView.Adapter<HomeHostAdapter.HostVie
                             ? R.string.home_host_running_compact
                             : R.string.home_host_running)
                     : R.string.home_host_ready;
-            actionRes = R.string.home_host_view_apps;
+            actionRes = details.runningGameId != 0
+                    ? R.string.home_host_resume
+                    : R.string.home_host_view_apps;
             statusColor = color(holder.itemView, R.color.home_connected);
         }
 

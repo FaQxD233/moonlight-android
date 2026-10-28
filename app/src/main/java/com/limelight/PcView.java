@@ -122,6 +122,7 @@ public class PcView extends Activity {
     private AlertDialog hostAddressDialog;
     private boolean switchingHostAddress;
     private TextView selectedHostSummary;
+    private ComputerObject selectedSummaryComputer;
     private HomeControllerCarouselView controllerCarousel;
     private InputManager inputManager;
     private boolean inputListenerRegistered;
@@ -273,6 +274,13 @@ public class PcView extends Activity {
         hostRefreshButton.setOnClickListener(view -> refreshHosts());
         updateHostRefreshButton();
         selectedHostSummary = findViewById(R.id.homeSelectedSummary);
+        if (selectedHostSummary != null) {
+            selectedHostSummary.setOnClickListener(view -> {
+                if (selectedSummaryComputer != null) {
+                    activateComputer(selectedSummaryComputer, view);
+                }
+            });
+        }
         controllerCarousel = findViewById(R.id.homeControllerCarousel);
         controllerCarousel.setOnSelectionChangedListener(
                 controllerKey -> selectedControllerKey = controllerKey);
@@ -573,12 +581,7 @@ public class PcView extends Activity {
         dialog.setListener(new PcActionsDialog.Listener() {
             @Override
             public void onResumeStream(ComputerDetails selectedComputer) {
-                if (managerBinder == null) {
-                    Toast.makeText(PcView.this, R.string.error_manager_not_running, Toast.LENGTH_LONG).show();
-                    return;
-                }
-                ServerHelper.doStart(PcView.this,
-                        new NvApp("app", selectedComputer.runningGameId, false), selectedComputer, managerBinder);
+                resumeRunningStream(selectedComputer);
             }
 
             @Override
@@ -947,16 +950,32 @@ public class PcView extends Activity {
         }
 
         ComputerDetails details = computer.details;
-        if (details.state == ComputerDetails.State.UNKNOWN
+        if (details.state == ComputerDetails.State.OFFLINE && details.macAddress != null) {
+            doWakeOnLan(details);
+        }
+        else if (details.state == ComputerDetails.State.UNKNOWN
                 || details.state == ComputerDetails.State.OFFLINE) {
             showComputerActions(sourceView, 0, computer);
         }
         else if (details.pairState != PairState.PAIRED) {
             doPair(details);
         }
+        else if (details.runningGameId != 0) {
+            // The app list stays reachable from the host's more actions
+            resumeRunningStream(details);
+        }
         else {
             doAppList(details, false, false);
         }
+    }
+
+    private void resumeRunningStream(ComputerDetails computer) {
+        if (managerBinder == null) {
+            Toast.makeText(PcView.this, R.string.error_manager_not_running, Toast.LENGTH_LONG).show();
+            return;
+        }
+        ServerHelper.doStart(PcView.this,
+                new NvApp("app", computer.runningGameId, false), computer, managerBinder);
     }
 
     private void syncHomeHosts() {
@@ -1170,9 +1189,11 @@ public class PcView extends Activity {
             return;
         }
         if (addCard || computer == null || computer.details == null) {
+            selectedSummaryComputer = null;
             selectedHostSummary.setText(getString(R.string.home_discovery_active));
             return;
         }
+        selectedSummaryComputer = computer;
 
         ComputerDetails details = computer.details;
         int statusRes;

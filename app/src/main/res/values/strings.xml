@@ -526,6 +526,8 @@
     <string name="home_host_actions">Host actions</string>
     <string name="home_host_pair">Pair</string>
     <string name="home_host_view_apps">View apps</string>
+    <string name="home_host_resume">Resume stream</string>
+    <string name="home_host_wake">Wake host</string>
     <string name="home_host_more">More actions for %1$s</string>
     <string name="home_host_source_sunshine">Sunshine</string>
     <string name="home_host_source_gamestream">GameStream</string>
