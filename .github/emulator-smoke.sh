@@ -1,29 +1,56 @@
 #!/usr/bin/env bash
 # Run by emulator-smoke.yml inside the emulator session: installs the debug build, turns on
-# built-in Tailscale, launches the app twice and prints the Go crash log and logcat excerpts.
+# built-in Tailscale, launches the app and prints the Go crash log and logcat excerpts.
+# Launches 1 and 2 start a node that has never logged in. Launch 3 starts one with a stored
+# login (made up, so control won't accept it) and a file waiting in Taildrop's inbox, which
+# the app should move to Downloads/月光.
 set -u
 pkg=com.limelight.debug
 apk=$(ls app/build/outputs/apk/nonRoot/debug/*.apk)
 
-adb install -r "$apk"
-printf '%s\n' "<?xml version='1.0' encoding='utf-8' standalone='yes' ?>" '<map>' \
-    '    <boolean name="checkbox_enable_tailnet" value="true" />' '</map>' > prefs.xml
-adb push prefs.xml /data/local/tmp/prefs.xml
-adb shell chmod 644 /data/local/tmp/prefs.xml
-adb shell "run-as $pkg sh -c 'mkdir -p shared_prefs && cp /data/local/tmp/prefs.xml shared_prefs/${pkg}_preferences.xml'"
+# Copies a file from the runner into the app's private storage
+push_private() {
+    adb push "$1" /data/local/tmp/smoke-file > /dev/null
+    adb shell chmod 644 /data/local/tmp/smoke-file
+    adb shell "run-as $pkg mkdir -p $(dirname "$2")"
+    adb shell "run-as $pkg cp /data/local/tmp/smoke-file $2"
+}
 
-for run in 1 2; do
+launch() {
     adb logcat -c
     adb shell am start -W -n "$pkg/com.limelight.PcView"
     sleep 45
-    echo "=== launch $run: app process after 45 s ==="
+    echo "=== launch $1: app process after 45 s ==="
     adb shell pidof "$pkg" || echo "not running"
-    echo "=== launch $run: Go crash log ==="
+    echo "=== launch $1: Go crash log ==="
     adb shell "run-as $pkg cat files/tailnet-crash.txt" || true
-    echo "=== launch $run: tailnet preferences ==="
+    echo "=== launch $1: tailnet preferences ==="
     adb shell "run-as $pkg cat shared_prefs/${pkg}_preferences.xml" | grep tailnet || true
-    adb logcat -d -v threadtime > "logcat-$run.txt"
-    echo "=== launch $run: logcat excerpt ==="
-    grep -E "GoLog|AndroidRuntime|DEBUG|libc|SIGSYS|seccomp|tailnet|Tailscale|aildrop|tsnet|FATAL|backtrace" "logcat-$run.txt" | tail -n 300
+    adb logcat -d -v threadtime > "logcat-$1.txt"
+    echo "=== launch $1: logcat excerpt ==="
+    grep -E "GoLog|AndroidRuntime|DEBUG|libc|SIGSYS|seccomp|tailnet|Tailscale|aildrop|tsnet|FATAL|backtrace" "logcat-$1.txt" | tail -n 300
     adb shell am force-stop "$pkg"
-done
+}
+
+adb install -r "$apk"
+printf '%s\n' "<?xml version='1.0' encoding='utf-8' standalone='yes' ?>" '<map>' \
+    '    <boolean name="checkbox_enable_tailnet" value="true" />' '</map>' > prefs.xml
+push_private prefs.xml "shared_prefs/${pkg}_preferences.xml"
+
+launch 1
+launch 2
+
+# tailscaled.state holds base64 values; the inbox of user 1 (ci@example.com) is files/<login>-uid-<id>
+profile='{"ci":{"ID":"ci","Name":"ci@example.com","Key":"profile-ci","ControlURL":"https://controlplane.tailscale.com","UserProfile":{"ID":1,"LoginName":"ci@example.com","DisplayName":"CI"}}}'
+printf '{"_current-profile":"%s","_profiles":"%s"}\n' "$(printf profile-ci | base64 -w0)" \
+    "$(printf '%s' "$profile" | base64 -w0)" > tailscaled.state
+push_private tailscaled.state files/tailnet/tailscaled.state
+inbox=files/tailnet/files/ci-example.com-uid-1
+echo "sent by the emulator smoke test" > ci-smoke.txt
+push_private ci-smoke.txt "$inbox/ci-smoke.txt"
+
+launch 3
+echo "=== launch 3: Taildrop inbox (ci-smoke.txt should be gone) ==="
+adb shell "run-as $pkg ls -la $inbox" || true
+echo "=== launch 3: Downloads/月光 (ci-smoke.txt should be here) ==="
+adb shell content query --uri content://media/external/downloads --projection _display_name:relative_path:_size || true

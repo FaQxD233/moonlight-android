@@ -14,6 +14,8 @@ fi
 go install golang.org/x/mobile/cmd/gomobile@latest golang.org/x/mobile/cmd/gobind@latest
 export PATH="$(go env GOPATH)/bin:$PATH"
 go mod tidy
+# The bridge's own tests, on this machine; they also check Taildrop's file store is still linked
+go test ./...
 gomobile init
 
 mkdir -p ../app/libs-tailnet
