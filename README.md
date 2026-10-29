@@ -7,6 +7,7 @@
 | 项目 | 下载入口 |
 | --- | --- |
 | 月光·阿西西 Android 版 | [GitHub Releases](https://github.com/Axixi2233/moonlight-android/releases) · [项目网盘（夸克）](https://pan.quark.cn/s/9a334d831290) |
+| 本仓库 Android 版（内置 Tailscale、文件传输） | [GitHub Releases](https://github.com/FaQxD233/moonlight-android/releases) |
 | Sunshine·阿西西（电脑串流服务端） | [GitHub Releases](https://github.com/Axixi2233/Sunshine/releases) |
 | StarCore 星核（macOS串流服务端） | [项目网盘（夸克）](https://pan.quark.cn/s/9a334d831290) |
 | iOS 版 · StarLight | [App Store](https://apps.apple.com/us/app/starlight-pc-streaming/id6761065654) |
@@ -95,6 +96,8 @@ git submodule update --init --recursive
 Windows PowerShell 使用 `./gradlew.bat` 执行相同参数。APK 输出到 `app/build/outputs/apk/nonRoot/debug/`。可选私有模块未包含时，对应的专用触觉反馈或 AI 3D 能力不随构建提供。
 
 内置 Tailscale 同样是可选组件：在 Linux 或 macOS 上安装 Go（版本见 `tailnet/go.mod`）后运行 `tailnet/build.sh`，生成 `app/libs-tailnet/tailnet.aar` 再按上面的命令构建；没有这个文件时，该功能不会编译进 APK。推送到 GitHub 后，Actions 会自动完成整个构建并上传 APK。
+
+正式版：在仓库的 Actions secrets 中设置 `RELEASE_KEYSTORE_BASE64`（签名密钥库的 base64）和 `RELEASE_KEYSTORE_PASSWORD`，推送 `v` 开头的标签（例如 `v26.10.29`）后，Actions 会构建签名的正式版 APK（包名 `com.faqxd.moonlight`）并发布到 GitHub Releases。
 
 ## 交流与贡献
 

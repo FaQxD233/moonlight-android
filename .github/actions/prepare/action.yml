@@ -1,0 +1,30 @@
+name: Prepare the app build
+description: Sets up Java, Go and the NDK the app uses, then builds the embedded Tailscale bindings with tailnet/build.sh.
+
+inputs:
+  tailnet-targets:
+    description: gomobile targets of the embedded Tailscale bindings
+    default: android/arm64
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-java@v5
+      with:
+        distribution: temurin
+        java-version: 17
+
+    - uses: actions/setup-go@v6
+      with:
+        go-version-file: tailnet/go.mod
+        cache: false
+
+    - name: Install the NDK used by the app
+      shell: bash
+      run: echo y | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;27.0.12077973" > /dev/null
+
+    - name: Build the embedded Tailscale bindings
+      shell: bash
+      env:
+        TAILNET_TARGET: ${{ inputs.tailnet-targets }}
+      run: ANDROID_NDK_HOME="$ANDROID_HOME/ndk/27.0.12077973" bash tailnet/build.sh

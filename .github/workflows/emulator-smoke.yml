@@ -15,21 +15,10 @@ jobs:
         with:
           submodules: recursive
 
-      - uses: actions/setup-java@v5
+      # arm64 for phones and x86_64 for the emulator
+      - uses: ./.github/actions/prepare
         with:
-          distribution: temurin
-          java-version: 17
-
-      - uses: actions/setup-go@v6
-        with:
-          go-version-file: tailnet/go.mod
-          cache: false
-
-      - name: Install the NDK used by the app
-        run: echo y | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;27.0.12077973" > /dev/null
-
-      - name: Build the embedded Tailscale bindings for arm64 and x86_64
-        run: ANDROID_NDK_HOME="$ANDROID_HOME/ndk/27.0.12077973" TAILNET_TARGET=android/arm64,android/amd64 bash tailnet/build.sh
+          tailnet-targets: android/arm64,android/amd64
 
       - name: Build APK
         run: ./gradlew --no-daemon -PincludeKishiHaptics=false -PincludeStereo3dAi=false :app:assembleNonRootDebug

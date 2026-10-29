@@ -49,6 +49,9 @@ app/.externalNativeBuild/
 # Embedded Tailscale bindings built by tailnet/build.sh
 /app/libs-tailnet/
 
+# Release signing key; release.yml reads it from the repository secrets
+/release-signing/
+
 # Local project documentation
 /docs/
 

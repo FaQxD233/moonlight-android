@@ -1,0 +1,103 @@
+name: Release
+
+# Pushing a tag such as v26.10.29 builds the release APK signed with this fork's key
+# and publishes it as a GitHub Release. Running the workflow by hand builds the same
+# APK as an artifact only. Pushes to ci/ branches check the release build.
+on:
+  push:
+    tags: ['v*']
+    branches: ['ci/**']
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    env:
+      PACKAGE: com.faqxd.moonlight
+      KEY_ALIAS: moonlight
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: recursive
+          # All history: the version code is the number of commits
+          fetch-depth: 0
+
+      - uses: ./.github/actions/prepare
+
+      # The key comes from the RELEASE_KEYSTORE_BASE64 and RELEASE_KEYSTORE_PASSWORD secrets.
+      # Only the ci/ branch check may sign with a throwaway key instead.
+      - name: Build the signed release APK
+        env:
+          KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+        run: |
+          keystore="$RUNNER_TEMP/release.keystore"
+          if [ -n "$KEYSTORE_BASE64" ] && [ -n "$KEYSTORE_PASSWORD" ]; then
+            printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$keystore"
+          elif [ "$GITHUB_REF_TYPE" = branch ] && [[ "$GITHUB_REF_NAME" == ci/* ]]; then
+            echo "::warning::The release key secrets are not set, so this check signs with a throwaway key"
+            KEYSTORE_PASSWORD=ci-throwaway
+            keytool -genkeypair -keystore "$keystore" -storetype PKCS12 -alias "$KEY_ALIAS" \
+              -storepass "$KEYSTORE_PASSWORD" -keyalg RSA -keysize 2048 -validity 1 -dname "CN=CI throwaway"
+          else
+            echo "::error::Set the RELEASE_KEYSTORE_BASE64 and RELEASE_KEYSTORE_PASSWORD secrets under Settings > Secrets and variables > Actions"
+            exit 1
+          fi
+
+          # Tag v26.10.29 is version 26.10.29; counting commits keeps version codes increasing
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            version_name="${GITHUB_REF_NAME#v}"
+          else
+            version_name="$(git describe --tags --always | sed 's/^v//')"
+          fi
+          version_code="$(git rev-list --count HEAD)"
+
+          ./gradlew --no-daemon -PincludeKishiHaptics=false -PincludeStereo3dAi=false \
+            -Pandroid.injected.signing.store.file="$keystore" \
+            -Pandroid.injected.signing.store.password="$KEYSTORE_PASSWORD" \
+            -Pandroid.injected.signing.key.alias="$KEY_ALIAS" \
+            -Pandroid.injected.signing.key.password="$KEYSTORE_PASSWORD" \
+            -PreleaseVersionName="$version_name" -PreleaseVersionCode="$version_code" \
+            :app:assembleNonRootRelease
+
+          # The certificate fingerprint (public) that the APK must be signed with
+          cert_sha256="$(keytool -J-Duser.language=en -list -v -keystore "$keystore" -storepass "$KEYSTORE_PASSWORD" \
+            -alias "$KEY_ALIAS" | sed -n 's/^[[:space:]]*SHA256: //p' | tr -d ':' | tr 'A-F' 'a-f')"
+          rm -f "$keystore"
+          test -n "$cert_sha256"
+          {
+            echo "VERSION_NAME=$version_name"
+            echo "VERSION_CODE=$version_code"
+            echo "CERT_SHA256=$cert_sha256"
+          } >> "$GITHUB_ENV"
+
+      # This fork's app at this version, signed with the key above, with the embedded Tailscale
+      - name: Check the APK
+        run: |
+          apk=$(ls app/build/outputs/apk/nonRoot/release/*.apk)
+          tools=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -n 1)
+          "$tools/aapt2" dump badging "$apk" | head -n 1 | tee badging.txt
+          grep -qF "name='$PACKAGE' versionCode='$VERSION_CODE' versionName='$VERSION_NAME'" badging.txt
+          "$tools/apksigner" verify --print-certs "$apk" | tee certs.txt
+          grep -qiF "certificate SHA-256 digest: $CERT_SHA256" certs.txt
+          unzip -l "$apk" | grep -q 'lib/arm64-v8a/libgojni.so'
+          mkdir -p dist
+          cp "$apk" "dist/moonlight-$VERSION_NAME.apk"
+
+      - name: Publish the GitHub Release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >
+          gh release create "$GITHUB_REF_NAME" "dist/moonlight-$VERSION_NAME.apk"
+          --title "$GITHUB_REF_NAME" --generate-notes --verify-tag
+
+      - uses: actions/upload-artifact@v7
+        if: github.event_name == 'workflow_dispatch'
+        with:
+          name: moonlight-release-${{ env.VERSION_NAME }}
+          path: dist/*.apk
+          if-no-files-found: error

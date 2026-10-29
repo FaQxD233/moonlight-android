@@ -149,7 +149,7 @@ android {
             // TL;DR: Leave the following line alone!
             applicationIdSuffix ".unofficialA"
 //            resValue "string", "app_label", "安兔兔·月光"
-            resValue "string", "app_label", "月光·阿西西"
+            resValue "string", "app_label", "月光"
             resValue "string", "app_label_root", "Moonlight (Root)"
 
             minifyEnabled true
@@ -166,6 +166,27 @@ android {
     externalNativeBuild {
         ndkBuild {
             path "src/main/jni/Android.mk"
+        }
+    }
+}
+
+// This fork's releases are their own app (see release.yml), so they install next to
+// Moonlight and 月光·阿西西 instead of clashing with their application IDs. release.yml
+// also passes their version as -PreleaseVersionName and -PreleaseVersionCode.
+androidComponents {
+    onVariants(selector().withBuildType('release')) { variant ->
+        if (variant.flavorName == 'nonRoot') {
+            variant.applicationId.set('com.faqxd.moonlight')
+            def versionName = project.findProperty('releaseVersionName')
+            def versionCode = project.findProperty('releaseVersionCode')
+            variant.outputs.each { output ->
+                if (versionName != null) {
+                    output.versionName.set(versionName.toString())
+                }
+                if (versionCode != null) {
+                    output.versionCode.set(versionCode.toString().toInteger())
+                }
+            }
         }
     }
 }
