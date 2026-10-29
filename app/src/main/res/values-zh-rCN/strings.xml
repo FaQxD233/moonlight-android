@@ -458,15 +458,15 @@
     <string name="tailnet_copied">已复制到剪贴板</string>
     <string name="tailnet_timeout">Tailscale 连接超时（当前状态：%1$s），请检查网络后重试。</string>
     <!-- 文件接收站（Taildrop） -->
-    <string name="received_files_title">文件接收站</string>
-    <string name="received_files_summary">查看用 Taildrop 从电脑发来的文件</string>
+    <string name="received_files_title">文件传输</string>
+    <string name="received_files_summary">用 Taildrop 在电脑和手机之间互传文件</string>
     <string name="received_files_empty">还没有收到文件</string>
     <string name="received_files_how_to_title">从电脑发送文件</string>
     <string name="received_files_status_checking">正在检查 Tailscale…</string>
     <string name="received_files_status_disabled">先在 设置 → 远程连接 里打开“内置 Tailscale”，再登录你的 Tailscale 账号</string>
     <string name="received_files_status_connecting">内置 Tailscale 正在连接…</string>
     <string name="received_files_status_login">还没有登录 Tailscale，点这里登录</string>
-    <string name="received_files_status_no_sharing">Tailscale 管理后台关闭了文件共享（Send Files），开启后才能接收</string>
+    <string name="received_files_status_no_sharing">Tailscale 管理后台关闭了文件共享（Send Files），开启后才能收发文件</string>
     <string name="received_files_status_ready">在电脑上右键文件 → Send with Tailscale → 选择“%1$s”。文件会保存到 下载/月光</string>
     <string name="received_files_open">打开</string>
     <string name="received_files_share">分享</string>
@@ -475,4 +475,20 @@
     <string name="received_files_open_failed">没有可以打开这个文件的应用</string>
     <string name="received_files_channel">收到的文件</string>
     <string name="received_files_notification_title">收到文件</string>
+    <string name="send_files_title">发送到电脑</string>
+    <string name="send_files_action">发送文件到电脑</string>
+    <string name="send_files_action_summary">选择文件，用 Taildrop 发到电脑。在其他 App 里分享文件时也可以选“发送到电脑”</string>
+    <string name="send_files_count">要发送 %1$d 个文件</string>
+    <string name="send_files_pick_device">选择要发送到的设备</string>
+    <string name="send_files_no_devices">现在没有能接收文件的设备。电脑上的 Tailscale 需要在运行，并登录同一个账号</string>
+    <string name="send_files_device_detail">点按发送</string>
+    <string name="send_files_started">正在后台发送，进度见通知栏</string>
+    <string name="send_files_nothing">没有可以发送的文件</string>
+    <string name="send_files_pick_failed">没有可以选择文件的应用</string>
+    <string name="send_files_channel">发送文件</string>
+    <string name="send_files_progress_title">正在发送到 %1$s</string>
+    <string name="send_files_done_title">已发送到 %1$s</string>
+    <string name="send_files_failed_title">发送到 %1$s 时有文件失败</string>
+    <string name="send_files_canceled_title">已取消发送</string>
+    <string name="send_files_result">已发送 %1$d/%2$d 个文件</string>
 </resources>

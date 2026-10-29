@@ -580,15 +580,15 @@
     <string name="tailnet_copied">Copied to the clipboard</string>
     <string name="tailnet_timeout">Tailscale didn\'t connect in time (state: %1$s). Check the network and try again.</string>
     <!-- File drop (Taildrop) -->
-    <string name="received_files_title">File drop</string>
-    <string name="received_files_summary">Files sent from your computer with Taildrop</string>
+    <string name="received_files_title">File transfer</string>
+    <string name="received_files_summary">Send and receive files with your computer using Taildrop</string>
     <string name="received_files_empty">No files received yet</string>
     <string name="received_files_how_to_title">Send files from a computer</string>
     <string name="received_files_status_checking">Checking Tailscale…</string>
     <string name="received_files_status_disabled">Turn on Built-in Tailscale in Settings, then log in to your Tailscale account</string>
     <string name="received_files_status_connecting">Built-in Tailscale is connecting…</string>
     <string name="received_files_status_login">Not logged in to Tailscale yet. Tap here to log in</string>
-    <string name="received_files_status_no_sharing">File sharing (Send Files) is turned off in the Tailscale admin console</string>
+    <string name="received_files_status_no_sharing">File sharing (Send Files) is turned off in the Tailscale admin console; turn it on to send and receive files</string>
     <string name="received_files_status_ready">On your computer, right-click a file → Send with Tailscale → choose “%1$s”. Files are saved to Downloads/月光</string>
     <string name="received_files_open">Open</string>
     <string name="received_files_share">Share</string>
@@ -597,4 +597,20 @@
     <string name="received_files_open_failed">No app can open this file</string>
     <string name="received_files_channel">Received files</string>
     <string name="received_files_notification_title">File received</string>
+    <string name="send_files_title">Send to computer</string>
+    <string name="send_files_action">Send files to a computer</string>
+    <string name="send_files_action_summary">Pick files and send them with Taildrop. Other apps can also share files here</string>
+    <string name="send_files_count">%1$d file(s) to send</string>
+    <string name="send_files_pick_device">Choose the device to send to</string>
+    <string name="send_files_no_devices">No device can receive files right now. The computer needs Tailscale running and logged in to the same account</string>
+    <string name="send_files_device_detail">Tap to send</string>
+    <string name="send_files_started">Sending in the background, see the notification</string>
+    <string name="send_files_nothing">Nothing to send</string>
+    <string name="send_files_pick_failed">No app can pick files</string>
+    <string name="send_files_channel">Sending files</string>
+    <string name="send_files_progress_title">Sending to %1$s</string>
+    <string name="send_files_done_title">Sent to %1$s</string>
+    <string name="send_files_failed_title">Couldn\'t send everything to %1$s</string>
+    <string name="send_files_canceled_title">Sending canceled</string>
+    <string name="send_files_result">%1$d of %2$d file(s) sent</string>
 </resources>

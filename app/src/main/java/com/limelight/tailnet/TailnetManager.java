@@ -249,6 +249,36 @@ public final class TailnetManager {
         bridge.saveWaitingFile(name, fd);
     }
 
+    /** The devices files can be sent to right now; asks the node, so not on the main thread. */
+    public List<FileTarget> getFileTargets() {
+        List<FileTarget> targets = new ArrayList<>();
+        if (bridge == null) {
+            return targets;
+        }
+        try {
+            JSONArray array = new JSONArray(bridge.fileTargets());
+            for (int i = 0; i < array.length(); i++) {
+                JSONObject target = array.getJSONObject(i);
+                targets.add(new FileTarget(target.getString("id"), target.getString("name")));
+            }
+        }
+        catch (JSONException e) {
+            LimeLog.warning("Unreadable Taildrop targets: " + e.getMessage());
+        }
+        return targets;
+    }
+
+    void sendFile(String targetId, String name, int fd, long size, TailnetBridge.SendProgress progress)
+            throws Exception {
+        bridge.sendFile(targetId, name, fd, size, progress);
+    }
+
+    void cancelSends() {
+        if (bridge != null) {
+            bridge.cancelSends();
+        }
+    }
+
     public synchronized void stop() {
         if (started) {
             bridge.stop();
@@ -452,6 +482,17 @@ public final class TailnetManager {
 
     private static void runAsync(String name, Runnable task) {
         new Thread(task, name).start();
+    }
+
+    /** A device on the tailnet that files can be sent to. */
+    public static final class FileTarget {
+        public final String id;
+        public final String name;
+
+        FileTarget(String id, String name) {
+            this.id = id;
+            this.name = name;
+        }
     }
 
     public static final class Status {

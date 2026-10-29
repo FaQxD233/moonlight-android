@@ -1,10 +1,8 @@
 package com.limelight.files;
 
-import android.Manifest;
 import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
-import android.content.pm.PackageManager;
-import android.os.Build;
+import android.content.Intent;
 import android.os.Bundle;
 import android.text.format.Formatter;
 import android.view.View;
@@ -23,17 +21,29 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
-/** The file drop: how to send files from a computer, and the files received so far. */
+/** File transfer: how to send files from a computer, sending files to one, and the files received so far. */
 public class ReceivedFilesActivity extends BaseActivity {
-    private static final int REQUEST_NOTIFICATIONS = 7101;
     // The node may still be connecting when the screen opens; check again a few times
-    private static final int STATUS_RETRIES = 5;
+    private static final int STATUS_READS = 6;
     private static final long STATUS_RETRY_MS = 2000;
 
     private LinearLayout list;
     private TextView emptyView;
     private CharSequence statusText;
-    private boolean resumed;
+    private FileTransferStatus status;
+    private final FileTransferStatus.Poller poller = new FileTransferStatus.Poller(new FileTransferStatus.Poller.Task() {
+        @Override
+        public boolean read() {
+            status = FileTransferStatus.read(ReceivedFilesActivity.this, TailnetManager.get(ReceivedFilesActivity.this));
+            return status.isConnecting();
+        }
+
+        @Override
+        public void show() {
+            statusText = describe(status);
+            refresh();
+        }
+    }, STATUS_READS, STATUS_RETRY_MS);
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -46,75 +56,29 @@ public class ReceivedFilesActivity extends BaseActivity {
         emptyView = findViewById(R.id.stream_log_empty);
         emptyView.setText(R.string.received_files_empty);
         statusText = getString(R.string.received_files_status_checking);
-
-        // Needed for the "File received" notification on Android 13+
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, REQUEST_NOTIFICATIONS);
-        }
+        FileTransferStatus.requestNotificationPermission(this);
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        resumed = true;
         refresh();
-        TailnetManager tailnet = TailnetManager.get(this);
-        tailnet.startIfEnabledAsync();
-        updateStatus(tailnet, STATUS_RETRIES);
+        TailnetManager.get(this).startIfEnabledAsync();
+        poller.start();
     }
 
     @Override
     protected void onPause() {
         super.onPause();
-        resumed = false;
+        poller.stop();
     }
 
-    // The status needs a call into the node, so it is read off the main thread
-    private void updateStatus(TailnetManager tailnet, int retriesLeft) {
-        new Thread(() -> {
-            TailnetManager.Status status = tailnet.isAvailable() && tailnet.isEnabled() ? tailnet.getStatus() : null;
-            boolean connecting = status != null && !status.isRunning() && status.authUrl == null
-                    && status.error == null;
-            CharSequence text = describe(tailnet, status);
-            runOnUiThread(() -> {
-                if (!resumed) {
-                    return;
-                }
-                statusText = text;
-                refresh();
-                if (connecting && retriesLeft > 0) {
-                    list.postDelayed(() -> {
-                        if (resumed) {
-                            updateStatus(tailnet, retriesLeft - 1);
-                        }
-                    }, STATUS_RETRY_MS);
-                }
-            });
-        }, "File drop status").start();
-    }
-
-    private CharSequence describe(TailnetManager tailnet, TailnetManager.Status status) {
-        if (!tailnet.isAvailable()) {
-            return getString(R.string.tailnet_unavailable);
-        }
-        if (status == null) {
-            return getString(R.string.received_files_status_disabled);
-        }
-        if (status.error != null) {
-            return status.error;
-        }
-        if (status.authUrl != null || "NeedsLogin".equals(status.state)) {
-            return getString(R.string.received_files_status_login);
-        }
-        if (!status.isRunning()) {
-            return getString(R.string.received_files_status_connecting);
-        }
-        if (!status.fileSharing) {
-            return getString(R.string.received_files_status_no_sharing);
+    private CharSequence describe(FileTransferStatus status) {
+        if (status.problem != null) {
+            return status.problem;
         }
         // The device name senders pick is the first label of its MagicDNS name
-        String name = status.name != null ? status.name : "";
+        String name = status.status.name != null ? status.status.name : "";
         int dot = name.indexOf('.');
         return getString(R.string.received_files_status_ready, dot > 0 ? name.substring(0, dot) : name);
     }
@@ -123,6 +87,8 @@ public class ReceivedFilesActivity extends BaseActivity {
         list.removeAllViews();
         list.addView(ListRows.create(this, getString(R.string.received_files_how_to_title), statusText,
                 v -> TailnetAccountDialog.show(this)));
+        list.addView(ListRows.create(this, getString(R.string.send_files_action), getString(R.string.send_files_action_summary),
+                v -> startActivity(new Intent(this, SendFilesActivity.class))));
 
         List<ReceivedFiles.Entry> entries = ReceivedFiles.list(this);
         emptyView.setVisibility(entries.isEmpty() ? View.VISIBLE : View.GONE);

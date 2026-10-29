@@ -53,4 +53,17 @@ launch 3
 echo "=== launch 3: Taildrop inbox (ci-smoke.txt should be gone) ==="
 adb shell "run-as $pkg ls -la $inbox" || true
 echo "=== launch 3: Downloads/月光 (ci-smoke.txt should be here) ==="
-adb shell content query --uri content://media/external/downloads --projection _display_name:relative_path:_size || true
+adb shell content query --uri content://media/external/downloads --projection _id:_display_name:relative_path:_size || true
+
+# Share the received file with "Send to computer", as another app would
+id=$(adb shell content query --uri content://media/external/downloads --projection _id \
+    --where "_display_name=\'ci-smoke.txt\'" | sed -n 's/.*_id=\([0-9]*\).*/\1/p' | head -n 1)
+adb logcat -c
+adb shell am start -W -a android.intent.action.SEND -t text/plain --grant-read-uri-permission \
+    --eu android.intent.extra.STREAM "content://media/external/downloads/$id" -n "$pkg/com.limelight.files.SendFilesActivity"
+sleep 20
+echo "=== share screen: app process after 20 s ==="
+adb shell pidof "$pkg" || echo "not running"
+adb logcat -d -v threadtime > logcat-share.txt
+grep -E "AndroidRuntime|FATAL|SendFiles|aildrop" logcat-share.txt | tail -n 50
+adb shell am force-stop "$pkg"

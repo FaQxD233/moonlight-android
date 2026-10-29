@@ -17,4 +17,15 @@ interface TailnetBridge {
     String awaitWaitingFiles(int timeoutSeconds);
 
     void saveWaitingFile(String name, int fd) throws Exception;
+
+    String fileTargets();
+
+    void sendFile(String targetId, String name, int fd, long size, SendProgress progress) throws Exception;
+
+    void cancelSends();
+
+    /** Told how many bytes of the file being sent have gone so far. */
+    interface SendProgress {
+        void sent(long bytes);
+    }
 }

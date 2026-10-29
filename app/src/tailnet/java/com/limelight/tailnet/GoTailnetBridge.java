@@ -49,4 +49,19 @@ final class GoTailnetBridge implements TailnetBridge {
     public void saveWaitingFile(String name, int fd) throws Exception {
         Tailnet.saveWaitingFile(name, fd);
     }
+
+    @Override
+    public String fileTargets() {
+        return Tailnet.fileTargets();
+    }
+
+    @Override
+    public void sendFile(String targetId, String name, int fd, long size, SendProgress progress) throws Exception {
+        Tailnet.sendFile(targetId, name, fd, size, progress::sent);
+    }
+
+    @Override
+    public void cancelSends() {
+        Tailnet.cancelSends();
+    }
 }

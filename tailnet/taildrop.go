@@ -6,6 +6,8 @@ import (
 	"errors"
 	"io"
 	"os"
+	"strings"
+	"sync"
 	"time"
 
 	// Taildrop isn't linked into tsnet by default. This registers its extension,
@@ -13,6 +15,7 @@ import (
 	// endpoints used below. Received files wait in the state directory until
 	// SaveWaitingFile moves them.
 	_ "tailscale.com/feature/taildrop"
+	"tailscale.com/tailcfg"
 )
 
 type waitingFile struct {
@@ -70,4 +73,113 @@ func SaveWaitingFile(name string, fd int) error {
 		return err
 	}
 	return lc.DeleteWaitingFile(ctx, name)
+}
+
+type fileTarget struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// FileTargets lists the devices this node can send files to with Taildrop as
+// JSON [{"id","name"}]: [] when there are none or the node isn't ready.
+func FileTargets() string {
+	targets := []fileTarget{}
+	if s := currentServer(); s != nil {
+		if lc, err := s.LocalClient(); err == nil {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			got, err := lc.FileTargets(ctx)
+			cancel()
+			if err == nil {
+				for _, t := range got {
+					targets = append(targets, fileTarget{ID: string(t.Node.StableID), Name: deviceName(t.Node)})
+				}
+			}
+		}
+	}
+	b, _ := json.Marshal(targets)
+	return string(b)
+}
+
+// deviceName is the name Tailscale shows for n elsewhere, such as on the computer.
+func deviceName(n *tailcfg.Node) string {
+	if n.ComputedName != "" {
+		return n.ComputedName
+	}
+	if n.Hostinfo.Valid() && n.Hostinfo.Hostname() != "" {
+		return n.Hostinfo.Hostname()
+	}
+	name, _, _ := strings.Cut(n.Name, ".")
+	return name
+}
+
+// Progress is told how many bytes of the file being sent have gone so far.
+type Progress interface {
+	Sent(bytes int64)
+}
+
+var (
+	sendMu     sync.Mutex
+	sendCtx    context.Context
+	sendCancel context.CancelFunc
+)
+
+// SendFile sends size bytes (-1 if unknown) read from fd, a readable descriptor
+// the app opened, to the device id as name with Taildrop. It reports progress
+// every progressInterval and when done. fd is always closed.
+func SendFile(id, name string, fd int, size int64, progress Progress) error {
+	in := os.NewFile(uintptr(fd), name)
+	defer in.Close()
+
+	s := currentServer()
+	if s == nil {
+		return errors.New("tailnet is not started")
+	}
+	lc, err := s.LocalClient()
+	if err != nil {
+		return err
+	}
+	r := &progressReader{r: in, progress: progress}
+	err = lc.PushFile(sendContext(), tailcfg.StableNodeID(id), size, name, r)
+	progress.Sent(r.sent)
+	return err
+}
+
+// sendContext is what CancelSends cancels.
+func sendContext() context.Context {
+	sendMu.Lock()
+	defer sendMu.Unlock()
+	if sendCtx == nil {
+		sendCtx, sendCancel = context.WithCancel(context.Background())
+	}
+	return sendCtx
+}
+
+// CancelSends stops the files being sent; files sent after it go as usual.
+func CancelSends() {
+	sendMu.Lock()
+	defer sendMu.Unlock()
+	if sendCancel != nil {
+		sendCancel()
+		sendCtx, sendCancel = nil, nil
+	}
+}
+
+const progressInterval = 500 * time.Millisecond
+
+// progressReader reports the bytes read through it at most every progressInterval.
+type progressReader struct {
+	r        io.Reader
+	progress Progress
+	sent     int64
+	last     time.Time
+}
+
+func (p *progressReader) Read(b []byte) (int, error) {
+	n, err := p.r.Read(b)
+	p.sent += int64(n)
+	if now := time.Now(); now.Sub(p.last) >= progressInterval {
+		p.last = now
+		p.progress.Sent(p.sent)
+	}
+	return n, err
 }
