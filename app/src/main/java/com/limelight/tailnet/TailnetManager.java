@@ -63,6 +63,7 @@ public final class TailnetManager {
     private final Map<String, String> loopbackByHost = new HashMap<>();
     private final Map<String, String> hostByLoopback = new HashMap<>();
     private boolean started;
+    private Thread taildropReceiver;
 
     private TailnetManager(Context appContext) {
         this.appContext = appContext;
@@ -225,6 +226,27 @@ public final class TailnetManager {
             throw new IOException(appContext.getString(R.string.tailnet_error, e.getMessage()), e);
         }
         MAIN_HANDLER.postDelayed(() -> prefs.edit().remove(PREF_START_PENDING).apply(), START_SURVIVAL_MS);
+        startTaildropReceiver();
+    }
+
+    // It ends by itself once stop() or logout() clears started
+    private void startTaildropReceiver() {
+        if (taildropReceiver == null || !taildropReceiver.isAlive()) {
+            taildropReceiver = new Thread(new TaildropReceiver(this, appContext), "Taildrop receiver");
+            taildropReceiver.start();
+        }
+    }
+
+    synchronized boolean isStarted() {
+        return started;
+    }
+
+    String awaitWaitingFiles(int timeoutSeconds) {
+        return bridge.awaitWaitingFiles(timeoutSeconds);
+    }
+
+    void saveWaitingFile(String name, int fd) throws Exception {
+        bridge.saveWaitingFile(name, fd);
     }
 
     public synchronized void stop() {
@@ -438,17 +460,21 @@ public final class TailnetManager {
         public final String name;
         public final List<String> addresses;
         public final String error;
+        /** Whether the tailnet lets this device receive files with Taildrop. */
+        public final boolean fileSharing;
 
-        private Status(String state, String authUrl, String name, List<String> addresses, String error) {
+        private Status(String state, String authUrl, String name, List<String> addresses, String error,
+                       boolean fileSharing) {
             this.state = state;
             this.authUrl = authUrl;
             this.name = name;
             this.addresses = addresses;
             this.error = error;
+            this.fileSharing = fileSharing;
         }
 
         static Status failed(String error) {
-            return new Status("Error", null, null, Collections.emptyList(), error);
+            return new Status("Error", null, null, Collections.emptyList(), error, false);
         }
 
         static Status parse(String json) {
@@ -462,7 +488,8 @@ public final class TailnetManager {
                     }
                 }
                 return new Status(status.optString("state"), emptyToNull(status.optString("authURL")),
-                        emptyToNull(status.optString("name")), addresses, emptyToNull(status.optString("error")));
+                        emptyToNull(status.optString("name")), addresses, emptyToNull(status.optString("error")),
+                        status.optBoolean("fileSharing"));
             }
             catch (JSONException e) {
                 return failed(e.getMessage());

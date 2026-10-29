@@ -457,4 +457,22 @@
     <string name="tailnet_copy">复制</string>
     <string name="tailnet_copied">已复制到剪贴板</string>
     <string name="tailnet_timeout">Tailscale 连接超时（当前状态：%1$s），请检查网络后重试。</string>
+    <!-- 文件接收站（Taildrop） -->
+    <string name="received_files_title">文件接收站</string>
+    <string name="received_files_summary">查看用 Taildrop 从电脑发来的文件</string>
+    <string name="received_files_empty">还没有收到文件</string>
+    <string name="received_files_how_to_title">从电脑发送文件</string>
+    <string name="received_files_status_checking">正在检查 Tailscale…</string>
+    <string name="received_files_status_disabled">先在 设置 → 远程连接 里打开“内置 Tailscale”，再登录你的 Tailscale 账号</string>
+    <string name="received_files_status_connecting">内置 Tailscale 正在连接…</string>
+    <string name="received_files_status_login">还没有登录 Tailscale，点这里登录</string>
+    <string name="received_files_status_no_sharing">Tailscale 管理后台关闭了文件共享（Send Files），开启后才能接收</string>
+    <string name="received_files_status_ready">在电脑上右键文件 → Send with Tailscale → 选择“%1$s”。文件会保存到 下载/月光</string>
+    <string name="received_files_open">打开</string>
+    <string name="received_files_share">分享</string>
+    <string name="received_files_delete">删除</string>
+    <string name="received_files_delete_confirm">删除这个文件吗？</string>
+    <string name="received_files_open_failed">没有可以打开这个文件的应用</string>
+    <string name="received_files_channel">收到的文件</string>
+    <string name="received_files_notification_title">收到文件</string>
 </resources>

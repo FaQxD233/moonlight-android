@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"tailscale.com/logtail"
+	"tailscale.com/tailcfg"
 	"tailscale.com/tsnet"
 )
 
@@ -25,6 +26,12 @@ var (
 	server *tsnet.Server
 	groups = map[string]*relayGroup{}
 )
+
+func currentServer() *tsnet.Server {
+	mu.Lock()
+	defer mu.Unlock()
+	return server
+}
 
 // Start creates the node and connects it in the background. controlURL and
 // authKey may be empty; without a stored login or an auth key, StatusJSON
@@ -80,11 +87,7 @@ func Stop() {
 // Logout removes the node from the tailnet if it is connected, then deletes
 // its state so the next Start logs in from scratch.
 func Logout(dir string) error {
-	mu.Lock()
-	s := server
-	mu.Unlock()
-
-	if s != nil {
+	if s := currentServer(); s != nil {
 		if lc, err := s.LocalClient(); err == nil {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			// Best effort: the local state is deleted either way.
@@ -101,18 +104,16 @@ type status struct {
 	AuthURL string   `json:"authURL,omitempty"`
 	IPs     []string `json:"ips,omitempty"`
 	Name    string   `json:"name,omitempty"`
-	Error   string   `json:"error,omitempty"`
+	// Whether the tailnet lets this node receive files with Taildrop
+	FileSharing bool   `json:"fileSharing,omitempty"`
+	Error       string `json:"error,omitempty"`
 }
 
 // StatusJSON reports the node as JSON. state is a Tailscale backend state
 // (NeedsLogin, Starting, Running, ...) or Stopped when the node isn't started.
 func StatusJSON() string {
-	mu.Lock()
-	s := server
-	mu.Unlock()
-
 	st := status{State: "Stopped"}
-	if s != nil {
+	if s := currentServer(); s != nil {
 		st.State = "NoState"
 		if err := fillStatus(s, &st); err != nil {
 			st.Error = err.Error()
@@ -140,6 +141,7 @@ func fillStatus(s *tsnet.Server, st *status) error {
 	}
 	if ss.Self != nil {
 		st.Name = strings.TrimSuffix(ss.Self.DNSName, ".")
+		st.FileSharing = ss.Self.HasCap(tailcfg.CapabilityFileSharing)
 	}
 	return nil
 }

@@ -24,6 +24,6 @@ for run in 1 2; do
     adb shell "run-as $pkg cat shared_prefs/${pkg}_preferences.xml" | grep tailnet || true
     adb logcat -d -v threadtime > "logcat-$run.txt"
     echo "=== launch $run: logcat excerpt ==="
-    grep -E "GoLog|AndroidRuntime|DEBUG|libc|SIGSYS|seccomp|tailnet|Tailscale|tsnet|FATAL|backtrace" "logcat-$run.txt" | tail -n 300
+    grep -E "GoLog|AndroidRuntime|DEBUG|libc|SIGSYS|seccomp|tailnet|Tailscale|aildrop|tsnet|FATAL|backtrace" "logcat-$run.txt" | tail -n 300
     adb shell am force-stop "$pkg"
 done

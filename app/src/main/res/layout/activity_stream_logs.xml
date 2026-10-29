@@ -24,6 +24,7 @@
             android:src="@drawable/axi_gameplay_ic_back_selector" />
 
         <TextView
+            android:id="@+id/stream_log_title"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_centerInParent="true"

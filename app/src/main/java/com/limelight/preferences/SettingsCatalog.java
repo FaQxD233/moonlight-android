@@ -76,7 +76,7 @@ final class SettingsCatalog {
         new Group("备份与恢复", "导出或导入主机配对数据",
             new Section("主机与配对数据", "export_pairing_backup", "import_pairing_backup")),
         new Group("远程连接", "内置 Tailscale，无需安装 Tailscale App",
-            new Section("Tailscale", "checkbox_enable_tailnet", "tailnet_account", "edit_tailnet_control_url")),
+            new Section("Tailscale", "checkbox_enable_tailnet", "tailnet_account", "received_files", "edit_tailnet_control_url")),
         new Group("日志采集", "记录串流并管理日志文件",
             new Section("串流日志", "checkbox_enable_stream_session_logging", "manage_stream_session_logs"),
             new Section("输入调试", "checkbox_enable_accessibility_show_log")),

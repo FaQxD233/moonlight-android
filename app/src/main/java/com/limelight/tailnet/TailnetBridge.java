@@ -13,4 +13,8 @@ interface TailnetBridge {
     String statusJson();
 
     void forward(String localIp, String remoteHost, String tcpPorts, String udpPorts) throws Exception;
+
+    String awaitWaitingFiles(int timeoutSeconds);
+
+    void saveWaitingFile(String name, int fd) throws Exception;
 }

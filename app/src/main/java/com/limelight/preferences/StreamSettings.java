@@ -42,6 +42,7 @@ import com.limelight.R;
 import com.limelight.StreamLogFilesActivity;
 import com.limelight.binding.input.virtual_controller.keyboard.KeyBoardControllerConfigurationLoader;
 import com.limelight.binding.video.MediaCodecHelper;
+import com.limelight.files.ReceivedFilesActivity;
 import com.limelight.ui.AppDialog;
 import com.limelight.utils.PairingBackupManager;
 import com.limelight.log.StreamLogStore;
@@ -1084,6 +1085,10 @@ public class StreamSettings extends Activity {
             });
             findPreference("tailnet_account").setOnPreferenceClickListener(preference -> {
                 TailnetAccountDialog.show(getActivity());
+                return true;
+            });
+            findPreference("received_files").setOnPreferenceClickListener(preference -> {
+                startActivity(new Intent(getActivity(), ReceivedFilesActivity.class));
                 return true;
             });
             EditTextPreference bitrateEditPre= (EditTextPreference) findPreference("edit_diy_bitrate");

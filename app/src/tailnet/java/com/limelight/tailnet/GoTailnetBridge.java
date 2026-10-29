@@ -39,4 +39,14 @@ final class GoTailnetBridge implements TailnetBridge {
     public void forward(String localIp, String remoteHost, String tcpPorts, String udpPorts) throws Exception {
         Tailnet.forward(localIp, remoteHost, tcpPorts, udpPorts);
     }
+
+    @Override
+    public String awaitWaitingFiles(int timeoutSeconds) {
+        return Tailnet.awaitWaitingFiles(timeoutSeconds);
+    }
+
+    @Override
+    public void saveWaitingFile(String name, int fd) throws Exception {
+        Tailnet.saveWaitingFile(name, fd);
+    }
 }

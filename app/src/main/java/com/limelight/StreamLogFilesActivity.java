@@ -5,13 +5,13 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.text.format.Formatter;
-import android.view.Gravity;
 import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import com.limelight.log.StreamLogStore;
+import com.limelight.ui.ListRows;
 
 import java.io.File;
 import java.text.SimpleDateFormat;
@@ -51,35 +51,9 @@ public class StreamLogFilesActivity extends BaseActivity {
     }
 
     private View createLogRow(File file) {
-        LinearLayout row = new LinearLayout(this);
-        row.setOrientation(LinearLayout.VERTICAL);
-        row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(dp(16), dp(13), dp(16), dp(13));
-        row.setBackgroundResource(R.drawable.bg_update_dialog_card_selector);
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        params.setMargins(dp(6), dp(6), dp(6), dp(6));
-        row.setLayoutParams(params);
-        row.setFocusable(true);
-        row.setClickable(true);
-
-        TextView title = new TextView(this);
-        title.setText(file.getName());
-        title.setTextColor(0xFFFFFFFF);
-        title.setTextSize(14);
-        title.setSingleLine(true);
-        row.addView(title);
-
-        TextView detail = new TextView(this);
-        detail.setText(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
-                .format(new Date(file.lastModified())) + "  ·  " + Formatter.formatShortFileSize(this, file.length()));
-        detail.setTextColor(0xB3FFFFFF);
-        detail.setTextSize(11);
-        detail.setPadding(0, dp(5), 0, 0);
-        row.addView(detail);
-
-        row.setOnClickListener(v -> showActions(file));
-        return row;
+        String detail = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+                .format(new Date(file.lastModified())) + "  ·  " + Formatter.formatShortFileSize(this, file.length());
+        return ListRows.create(this, file.getName(), detail, v -> showActions(file));
     }
 
     private void showActions(File file) {
@@ -148,9 +122,5 @@ public class StreamLogFilesActivity extends BaseActivity {
         boolean exported = destination != null && StreamLogStore.export(this, pendingExportFile, destination);
         pendingExportFile = null;
         Toast.makeText(this, exported ? "日志已导出" : "日志导出失败", Toast.LENGTH_SHORT).show();
-    }
-
-    private int dp(int value) {
-        return Math.round(value * getResources().getDisplayMetrics().density);
     }
 }

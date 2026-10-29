@@ -579,4 +579,22 @@
     <string name="tailnet_copy">Copy</string>
     <string name="tailnet_copied">Copied to the clipboard</string>
     <string name="tailnet_timeout">Tailscale didn\'t connect in time (state: %1$s). Check the network and try again.</string>
+    <!-- File drop (Taildrop) -->
+    <string name="received_files_title">File drop</string>
+    <string name="received_files_summary">Files sent from your computer with Taildrop</string>
+    <string name="received_files_empty">No files received yet</string>
+    <string name="received_files_how_to_title">Send files from a computer</string>
+    <string name="received_files_status_checking">Checking Tailscale…</string>
+    <string name="received_files_status_disabled">Turn on Built-in Tailscale in Settings, then log in to your Tailscale account</string>
+    <string name="received_files_status_connecting">Built-in Tailscale is connecting…</string>
+    <string name="received_files_status_login">Not logged in to Tailscale yet. Tap here to log in</string>
+    <string name="received_files_status_no_sharing">File sharing (Send Files) is turned off in the Tailscale admin console</string>
+    <string name="received_files_status_ready">On your computer, right-click a file → Send with Tailscale → choose “%1$s”. Files are saved to Downloads/月光</string>
+    <string name="received_files_open">Open</string>
+    <string name="received_files_share">Share</string>
+    <string name="received_files_delete">Delete</string>
+    <string name="received_files_delete_confirm">Delete this file?</string>
+    <string name="received_files_open_failed">No app can open this file</string>
+    <string name="received_files_channel">Received files</string>
+    <string name="received_files_notification_title">File received</string>
 </resources>

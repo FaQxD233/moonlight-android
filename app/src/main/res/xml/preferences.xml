@@ -796,6 +796,11 @@
             android:title="@string/tailnet_account_title"
             android:summary="@string/tailnet_account_summary" />
 
+        <Preference
+            android:key="received_files"
+            android:title="@string/received_files_title"
+            android:summary="@string/received_files_summary" />
+
         <EditTextPreference
             android:key="edit_tailnet_control_url"
             android:title="@string/tailnet_control_url_title"
