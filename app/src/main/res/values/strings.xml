@@ -613,4 +613,10 @@
     <string name="send_files_failed_title">Couldn\'t send everything to %1$s</string>
     <string name="send_files_canceled_title">Sending canceled</string>
     <string name="send_files_result">%1$d of %2$d file(s) sent</string>
+    <string name="tailnet_background_pref_title">Receive files in the background</string>
+    <string name="tailnet_background_pref_summary">Keeps built-in Tailscale running while the app is in the background, so the computer can send files any time. Shows a persistent notification and uses more battery; on Xiaomi and similar phones, also set the app\'s battery saver to No restrictions</string>
+    <string name="tailnet_background_channel">Running in the background</string>
+    <string name="tailnet_background_title">Built-in Tailscale is running in the background</string>
+    <string name="tailnet_background_text">Files sent from your computer keep arriving</string>
+    <string name="tailnet_background_stop">Stop</string>
 </resources>

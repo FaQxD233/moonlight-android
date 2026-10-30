@@ -41,6 +41,7 @@ import java.util.Map;
 public final class TailnetManager {
     public static final String PREF_ENABLED = "checkbox_enable_tailnet";
     public static final String PREF_CONTROL_URL = "edit_tailnet_control_url";
+    public static final String PREF_BACKGROUND = "checkbox_tailnet_background";
 
     private static final String BRIDGE_CLASS = "com.limelight.tailnet.GoTailnetBridge";
     private static final String STATE_DIR = "tailnet";
@@ -194,6 +195,13 @@ public final class TailnetManager {
         if (bridge == null || !isEnabled()) {
             return;
         }
+        // Called while the app is in the foreground, which Android requires to start the service
+        TailnetBackgroundService.update(appContext, wantsBackground());
+        startNodeAsync();
+    }
+
+    // Also used by TailnetBackgroundService when the system restarts it without the app
+    void startNodeAsync() {
         runAsync("Tailnet start", () -> {
             try {
                 ensureStarted();
@@ -239,6 +247,11 @@ public final class TailnetManager {
 
     synchronized boolean isStarted() {
         return started;
+    }
+
+    /** Whether to keep the node running while the app is in the background, to receive files. */
+    boolean wantsBackground() {
+        return bridge != null && isEnabled() && prefs.getBoolean(PREF_BACKGROUND, false);
     }
 
     String awaitWaitingFiles(int timeoutSeconds) {
@@ -433,8 +446,12 @@ public final class TailnetManager {
                 startIfEnabledAsync();
             }
             else {
+                TailnetBackgroundService.update(appContext, false);
                 runAsync("Tailnet stop", this::stop);
             }
+        }
+        else if (PREF_BACKGROUND.equals(key)) {
+            TailnetBackgroundService.update(appContext, wantsBackground());
         }
         else if (PREF_CONTROL_URL.equals(key)) {
             // A node belongs to one control server, so switching servers needs a new login

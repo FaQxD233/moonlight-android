@@ -801,6 +801,13 @@
             android:title="@string/received_files_title"
             android:summary="@string/received_files_summary" />
 
+        <CheckBoxPreference
+            android:key="checkbox_tailnet_background"
+            android:title="@string/tailnet_background_pref_title"
+            android:summary="@string/tailnet_background_pref_summary"
+            android:dependency="checkbox_enable_tailnet"
+            android:defaultValue="false" />
+
         <EditTextPreference
             android:key="edit_tailnet_control_url"
             android:title="@string/tailnet_control_url_title"

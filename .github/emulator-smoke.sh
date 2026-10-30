@@ -29,13 +29,25 @@ launch() {
     adb logcat -d -v threadtime > "logcat-$1.txt"
     echo "=== launch $1: logcat excerpt ==="
     grep -E "GoLog|AndroidRuntime|DEBUG|libc|SIGSYS|seccomp|tailnet|Tailscale|aildrop|tsnet|FATAL|backtrace" "logcat-$1.txt" | tail -n 300
-    adb shell am force-stop "$pkg"
+    # "keep" leaves the app running
+    [ "${2:-}" = keep ] || adb shell am force-stop "$pkg"
+}
+
+# Writes the app's settings: built-in Tailscale on, plus any further boolean settings named
+write_prefs() {
+    {
+        echo "<?xml version='1.0' encoding='utf-8' standalone='yes' ?>"
+        echo '<map>'
+        for name in checkbox_enable_tailnet "$@"; do
+            echo "    <boolean name=\"$name\" value=\"true\" />"
+        done
+        echo '</map>'
+    } > prefs.xml
+    push_private prefs.xml "shared_prefs/${pkg}_preferences.xml"
 }
 
 adb install -r "$apk"
-printf '%s\n' "<?xml version='1.0' encoding='utf-8' standalone='yes' ?>" '<map>' \
-    '    <boolean name="checkbox_enable_tailnet" value="true" />' '</map>' > prefs.xml
-push_private prefs.xml "shared_prefs/${pkg}_preferences.xml"
+write_prefs
 
 launch 1
 launch 2
@@ -48,12 +60,26 @@ push_private tailscaled.state files/tailnet/tailscaled.state
 inbox=files/tailnet/files/ci-example.com-uid-1
 echo "sent by the emulator smoke test" > ci-smoke.txt
 push_private ci-smoke.txt "$inbox/ci-smoke.txt"
+write_prefs checkbox_tailnet_background
 
-launch 3
+launch 3 keep
 echo "=== launch 3: Taildrop inbox (ci-smoke.txt should be gone) ==="
 adb shell "run-as $pkg ls -la $inbox" || true
 echo "=== launch 3: Downloads/月光 (ci-smoke.txt should be here) ==="
 adb shell content query --uri content://media/external/downloads --projection _id:_display_name:relative_path:_size || true
+echo "=== launch 3: background service (should be in the foreground) ==="
+adb shell dumpsys activity services "$pkg" | grep -E "ServiceRecord|isForeground|foregroundServiceType" || true
+
+# A file that arrives while the app is in the background, picked up within a minute
+adb shell input keyevent KEYCODE_HOME
+echo "sent while the app was in the background" > ci-background.txt
+push_private ci-background.txt "$inbox/ci-background.txt"
+sleep 75
+echo "=== background: app process, inbox (empty) and Downloads/月光 (ci-background.txt) ==="
+adb shell pidof "$pkg" || echo "not running"
+adb shell "run-as $pkg ls -la $inbox" || true
+adb shell content query --uri content://media/external/downloads --projection _display_name:relative_path:_size || true
+adb shell am force-stop "$pkg"
 
 # Share the received file with "Send to computer", as another app would
 id=$(adb shell content query --uri content://media/external/downloads --projection _id \

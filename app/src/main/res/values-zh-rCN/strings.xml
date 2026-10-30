@@ -491,4 +491,10 @@
     <string name="send_files_failed_title">发送到 %1$s 时有文件失败</string>
     <string name="send_files_canceled_title">已取消发送</string>
     <string name="send_files_result">已发送 %1$d/%2$d 个文件</string>
+    <string name="tailnet_background_pref_title">后台接收文件</string>
+    <string name="tailnet_background_pref_summary">App 在后台时也保持内置 Tailscale 运行，电脑随时能发文件过来。通知栏会常驻一条通知，会多耗一些电；小米等手机还需要在系统设置里把本应用的省电策略设为“无限制”</string>
+    <string name="tailnet_background_channel">后台运行</string>
+    <string name="tailnet_background_title">内置 Tailscale 正在后台运行</string>
+    <string name="tailnet_background_text">电脑发来的文件会照常接收</string>
+    <string name="tailnet_background_stop">停止</string>
 </resources>
