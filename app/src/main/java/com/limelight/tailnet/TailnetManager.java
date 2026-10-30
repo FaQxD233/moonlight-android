@@ -32,6 +32,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Optional Tailscale node embedded in the app (tsnet, built from tailnet/). Hosts at Tailscale
@@ -51,6 +52,10 @@ public final class TailnetManager {
     private static final String PREF_CRASHED = "tailnet_crashed";
     private static final long START_SURVIVAL_MS = 30000;
     private static final String CRASH_LOG = "tailnet-crash.txt";
+    // Hosts get one tailscale ping every PATH_REFRESH_MS; results older than PATH_FRESH_MS aren't shown
+    private static final long PATH_REFRESH_MS = 10000;
+    private static final long PATH_FRESH_MS = 30000;
+    private static final int PING_TIMEOUT_MS = 3000;
     private static final int MAX_CRASH_REPORT_CHARS = 64 * 1024;
     private static final Handler MAIN_HANDLER = new Handler(Looper.getMainLooper());
 
@@ -63,6 +68,9 @@ public final class TailnetManager {
     private final SharedPreferences.OnSharedPreferenceChangeListener prefListener = this::onPreferenceChanged;
     private final Map<String, String> loopbackByHost = new HashMap<>();
     private final Map<String, String> hostByLoopback = new HashMap<>();
+    // By lower-case host: the last successful ping, and when each host was last pinged
+    private final Map<String, Path> paths = new ConcurrentHashMap<>();
+    private final Map<String, Long> pingTimes = new ConcurrentHashMap<>();
     private boolean started;
     private Thread taildropReceiver;
 
@@ -162,7 +170,7 @@ public final class TailnetManager {
     }
 
     // Tailscale's CGNAT range (100.64.0.0/10), its IPv6 prefix (fd7a:115c:a1e0::/48) or a MagicDNS name
-    static boolean isTailnetHost(String host) {
+    public static boolean isTailnetHost(String host) {
         if (host == null) {
             return false;
         }
@@ -289,6 +297,62 @@ public final class TailnetManager {
     void cancelSends() {
         if (bridge != null) {
             bridge.cancelSends();
+        }
+    }
+
+    /** The other devices on the tailnet that are online, from tailscale status; not on the main thread. */
+    public List<Peer> getOnlinePeers() {
+        List<Peer> peers = new ArrayList<>();
+        if (bridge == null) {
+            return peers;
+        }
+        try {
+            JSONArray array = new JSONArray(bridge.peersJson());
+            for (int i = 0; i < array.length(); i++) {
+                JSONObject peer = array.getJSONObject(i);
+                peers.add(new Peer(peer.optString("name"), peer.optString("os"),
+                        Status.emptyToNull(peer.optString("ipv4")), peer.optBoolean("mine")));
+            }
+        }
+        catch (JSONException e) {
+            LimeLog.warning("Unreadable tailnet peers: " + e.getMessage());
+        }
+        return peers;
+    }
+
+    /** Whether something accepts TCP connections on host:port, checked over the tailnet without a relay. */
+    public boolean probeTcp(String host, int port, int timeoutMillis) {
+        return bridge != null && bridge.probeTcp(host, port, timeoutMillis);
+    }
+
+    /** The path the last tailscale ping to host took, or null without a recent one. */
+    public Path getPath(String host) {
+        Path path = host != null ? paths.get(host.toLowerCase(Locale.ROOT)) : null;
+        return path != null && SystemClock.elapsedRealtime() - path.time < PATH_FRESH_MS ? path : null;
+    }
+
+    /** Pings a tailnet host like tailscale ping, at most every PATH_REFRESH_MS. Blocks up to PING_TIMEOUT_MS. */
+    public void refreshPathIfDue(String host) {
+        if (bridge == null || !isEnabled() || !isTailnetHost(host)) {
+            return;
+        }
+        String key = host.toLowerCase(Locale.ROOT);
+        long now = SystemClock.elapsedRealtime();
+        Long last = pingTimes.get(key);
+        if (last != null && now - last < PATH_REFRESH_MS) {
+            return;
+        }
+        pingTimes.put(key, now);
+        try {
+            JSONObject result = new JSONObject(bridge.pingJson(host, PING_TIMEOUT_MS));
+            String kind = result.optString("path");
+            if (result.optString("error").isEmpty() && !kind.isEmpty()) {
+                paths.put(key, new Path(kind, result.optString("endpoint"),
+                        Math.round(result.optDouble("latencyMs")), SystemClock.elapsedRealtime()));
+            }
+        }
+        catch (JSONException e) {
+            LimeLog.warning("Unreadable tailscale ping result: " + e.getMessage());
         }
     }
 
@@ -501,6 +565,49 @@ public final class TailnetManager {
         new Thread(task, name).start();
     }
 
+    /** An online device on the tailnet, from tailscale status. */
+    public static final class Peer {
+        public final String name;
+        public final String os;
+        public final String ipv4;
+        /** Owned by this node's user, rather than shared with it or tagged */
+        public final boolean mine;
+
+        Peer(String name, String os, String ipv4, boolean mine) {
+            this.name = name;
+            this.os = os;
+            this.ipv4 = ipv4;
+            this.mine = mine;
+        }
+    }
+
+    /** The path a tailscale ping took, named as tailscale status names it. */
+    public static final class Path {
+        /** direct, relay (over DERP) or peer-relay */
+        public final String kind;
+        /** The direct ip:port, the DERP region code or the peer relay's ip:port:vni */
+        public final String endpoint;
+        public final long latencyMs;
+        final long time;
+
+        Path(String kind, String endpoint, long latencyMs, long time) {
+            this.kind = kind;
+            this.endpoint = endpoint;
+            this.latencyMs = latencyMs;
+            this.time = time;
+        }
+
+        /** For host cards: direct, relay "hkg" or peer-relay. */
+        public String shortName() {
+            return "relay".equals(kind) ? "relay \"" + endpoint + "\"" : kind;
+        }
+
+        /** As tailscale status prints it, such as direct 192.168.1.10:41641 or relay "hkg". */
+        public String statusName() {
+            return "relay".equals(kind) || endpoint.isEmpty() ? shortName() : kind + " " + endpoint;
+        }
+    }
+
     /** A device on the tailnet that files can be sent to. */
     public static final class FileTarget {
         public final String id;
@@ -558,7 +665,7 @@ public final class TailnetManager {
             return "Running".equals(state);
         }
 
-        private static String emptyToNull(String value) {
+        static String emptyToNull(String value) {
             return value == null || value.isEmpty() ? null : value;
         }
     }

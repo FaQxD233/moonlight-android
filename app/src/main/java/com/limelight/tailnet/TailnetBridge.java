@@ -24,6 +24,12 @@ interface TailnetBridge {
 
     void cancelSends();
 
+    String peersJson();
+
+    boolean probeTcp(String host, int port, int timeoutMillis);
+
+    String pingJson(String host, int timeoutMillis);
+
     /** Told how many bytes of the file being sent have gone so far. */
     interface SendProgress {
         void sent(long bytes);

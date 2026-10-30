@@ -416,6 +416,9 @@
     <string name="home_host_connection_manual">手动地址</string>
     <string name="home_host_connection_ipv6">IPv6</string>
     <string name="home_host_connection_unknown">地址待确认</string>
+    <string name="home_host_connection_tailscale">Tailscale</string>
+    <string name="home_host_connection_tailscale_path">Tailscale %1$s · %2$d ms</string>
+    <string name="pc_actions_tailscale_path">Tailscale 线路：%1$s · %2$d ms</string>
     <string name="home_host_card_accessibility">%1$s，%2$s，%3$s</string>
     <string name="title_touch_stutter_compatibility">触控卡顿兼容</string>
     <string name="summary_touch_stutter_compatibility">放宽控制连接对短暂网络延迟波动的容忍度，可尝试缓解持续拖动时的偶发卡顿。重新连接后生效。</string>

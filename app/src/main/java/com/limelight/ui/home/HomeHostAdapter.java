@@ -18,6 +18,7 @@ import com.limelight.PcView;
 import com.limelight.R;
 import com.limelight.nvstream.http.ComputerDetails;
 import com.limelight.nvstream.http.PairingManager;
+import com.limelight.tailnet.TailnetManager;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -316,7 +317,7 @@ final class HomeHostAdapter extends RecyclerView.Adapter<HomeHostAdapter.HostVie
                     ? R.string.home_host_pair_paired
                     : R.string.home_host_pair_unpaired;
         }
-        String connectionMeta = holder.itemView.getContext().getString(addressDisplay.labelRes)
+        String connectionMeta = connectionLabel(holder.itemView.getContext(), addressDisplay)
                 + " · " + holder.itemView.getContext().getString(pairStateRes);
         if (listMode) {
             holder.address.setText(addressDisplay.address);
@@ -633,6 +634,16 @@ final class HomeHostAdapter extends RecyclerView.Adapter<HomeHostAdapter.HostVie
         return new AddressDisplay(
                 context.getString(R.string.home_host_connection_unknown),
                 R.string.home_host_connection_unknown);
+    }
+
+    // Tailnet hosts show the path the last tailscale ping took, named as tailscale status names it
+    private static String connectionLabel(android.content.Context context, AddressDisplay addressDisplay) {
+        if (!TailnetManager.isTailnetHost(addressDisplay.address)) {
+            return context.getString(addressDisplay.labelRes);
+        }
+        TailnetManager.Path path = TailnetManager.get(context).getPath(addressDisplay.address);
+        return path == null ? context.getString(R.string.home_host_connection_tailscale)
+                : context.getString(R.string.home_host_connection_tailscale_path, path.shortName(), path.latencyMs);
     }
 
     private int addressLabel(ComputerDetails details, ComputerDetails.AddressTuple activeAddress) {

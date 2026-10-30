@@ -64,4 +64,19 @@ final class GoTailnetBridge implements TailnetBridge {
     public void cancelSends() {
         Tailnet.cancelSends();
     }
+
+    @Override
+    public String peersJson() {
+        return Tailnet.peersJSON();
+    }
+
+    @Override
+    public boolean probeTcp(String host, int port, int timeoutMillis) {
+        return Tailnet.probeTCP(host, port, timeoutMillis);
+    }
+
+    @Override
+    public String pingJson(String host, int timeoutMillis) {
+        return Tailnet.pingJSON(host, timeoutMillis);
+    }
 }

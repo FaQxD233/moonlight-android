@@ -538,6 +538,9 @@
     <string name="home_host_connection_manual">Manual</string>
     <string name="home_host_connection_ipv6">IPv6</string>
     <string name="home_host_connection_unknown">Address pending</string>
+    <string name="home_host_connection_tailscale">Tailscale</string>
+    <string name="home_host_connection_tailscale_path">Tailscale %1$s · %2$d ms</string>
+    <string name="pc_actions_tailscale_path">Tailscale path: %1$s · %2$d ms</string>
     <string name="home_host_card_accessibility">%1$s, %2$s, %3$s</string>
     <string name="title_touch_stutter_compatibility">Touch stutter compatibility</string>
     <string name="summary_touch_stutter_compatibility">Tolerate brief control connection latency fluctuations to help with occasional stuttering during continuous dragging. Reconnect to apply.</string>

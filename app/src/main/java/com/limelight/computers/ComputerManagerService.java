@@ -6,9 +6,17 @@ import java.io.StringReader;
 import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -33,6 +41,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.content.SharedPreferences;
 import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
@@ -46,6 +55,14 @@ import org.xmlpull.v1.XmlPullParserException;
 public class ComputerManagerService extends Service {
     private static final int SERVERINFO_POLLING_PERIOD_MS = 1500;
     private static final int APPLIST_POLLING_PERIOD_MS = 30000;
+    // Tailscale doesn't carry mDNS, so Sunshine hosts on the tailnet are found by probing its peers
+    private static final long TAILNET_DISCOVERY_PERIOD_MS = 60000;
+    private static final long TAILNET_DISCOVERY_RETRY_MS = 10000;
+    private static final long TAILNET_RECHECK_MS = 10 * 60000;
+    private static final int TAILNET_PROBE_TIMEOUT_MS = 2000;
+    private static final int TAILNET_PROBE_THREADS = 4;
+    private static final String TAILNET_DISCOVERY_PREFS = "tailnet_discovery";
+    private static final String PREF_IGNORED_UUIDS = "ignored_uuids";
     private static final int APPLIST_FAILED_POLLING_RETRY_MS = 2000;
     private static final int MDNS_QUERY_PERIOD_MS = 1000;
     private static final int OFFLINE_POLL_TRIES = 3;
@@ -63,6 +80,9 @@ public class ComputerManagerService extends Service {
     private ComputerManagerListener listener = null;
     private final AtomicInteger activePolls = new AtomicInteger(0);
     private volatile boolean pollingActive = false;
+    private Thread tailnetDiscovery;
+    // Peers that needed no adding (port closed, already listed or removed), with when they were checked
+    private final Map<String, Long> checkedTailnetPeers = new ConcurrentHashMap<>();
     private final Lock defaultNetworkLock = new ReentrantLock();
 
     private ConnectivityManager.NetworkCallback networkCallback;
@@ -191,6 +211,11 @@ public class ComputerManagerService extends Service {
                                     offlineCount = 0;
                                 }
                             }
+                            // For the host cards: the path to a host reached over the tailnet, from tailscale ping
+                            ComputerDetails.AddressTuple active = tuple.computer.activeAddress;
+                            if (offlineCount == 0 && active != null) {
+                                TailnetManager.get(ComputerManagerService.this).refreshPathIfDue(active.address);
+                            }
                         } catch (InterruptedException e) {
                             break;
                         } finally {
@@ -303,6 +328,7 @@ public class ComputerManagerService extends Service {
 
             // Start mDNS autodiscovery too
             discoveryBinder.startDiscovery(MDNS_QUERY_PERIOD_MS);
+            startTailnetDiscovery();
 
             synchronized (pollingTuples) {
                 for (PollingTuple tuple : pollingTuples) {
@@ -411,6 +437,7 @@ public class ComputerManagerService extends Service {
             // Stop mDNS autodiscovery
             discoveryBinder.stopDiscovery();
         }
+        stopTailnetDiscovery();
 
         // Stop polling
         pollingActive = false;
@@ -491,6 +518,116 @@ public class ComputerManagerService extends Service {
             defaultNetworkLock.unlock();
         }
 
+    }
+
+    private synchronized void startTailnetDiscovery() {
+        if (tailnetDiscovery != null) {
+            return;
+        }
+        tailnetDiscovery = new Thread(() -> {
+            try {
+                while (true) {
+                    Thread.sleep(discoverTailnetHosts() ? TAILNET_DISCOVERY_PERIOD_MS : TAILNET_DISCOVERY_RETRY_MS);
+                }
+            }
+            catch (InterruptedException e) {
+                // Polling stopped
+            }
+        }, "Tailnet discovery");
+        tailnetDiscovery.start();
+    }
+
+    private synchronized void stopTailnetDiscovery() {
+        if (tailnetDiscovery != null) {
+            tailnetDiscovery.interrupt();
+            tailnetDiscovery = null;
+        }
+    }
+
+    // Adds the Sunshine hosts among this user's online tailnet computers; false if the node isn't up yet
+    private boolean discoverTailnetHosts() throws InterruptedException {
+        TailnetManager tailnet = TailnetManager.get(this);
+        if (!tailnet.isAvailable() || !tailnet.isEnabled() || !tailnet.getStatus().isRunning()) {
+            return false;
+        }
+        long now = SystemClock.elapsedRealtime();
+        List<String> candidates = new ArrayList<>();
+        for (TailnetManager.Peer peer : tailnet.getOnlinePeers()) {
+            Long checked = peer.ipv4 != null ? checkedTailnetPeers.get(peer.ipv4) : null;
+            if (peer.mine && peer.ipv4 != null && isComputerOs(peer.os) && !isKnownAddress(peer.ipv4)
+                    && (checked == null || now - checked > TAILNET_RECHECK_MS)) {
+                candidates.add(peer.ipv4);
+            }
+        }
+        if (candidates.isEmpty()) {
+            return true;
+        }
+        ExecutorService probes = Executors.newFixedThreadPool(Math.min(TAILNET_PROBE_THREADS, candidates.size()));
+        try {
+            for (String address : candidates) {
+                probes.execute(() -> addTailnetHost(tailnet, address));
+            }
+            probes.shutdown();
+            probes.awaitTermination(TAILNET_DISCOVERY_PERIOD_MS, TimeUnit.MILLISECONDS);
+        }
+        finally {
+            probes.shutdownNow();
+        }
+        return true;
+    }
+
+    private void addTailnetHost(TailnetManager tailnet, String address) {
+        // A quick check of the Sunshine port first, so computers without it cost no serverinfo poll
+        if (tailnet.probeTcp(address, NvHTTP.DEFAULT_HTTP_PORT, TAILNET_PROBE_TIMEOUT_MS)) {
+            ComputerDetails details = new ComputerDetails();
+            details.manualAddress = new ComputerDetails.AddressTuple(address, NvHTTP.DEFAULT_HTTP_PORT);
+            try {
+                if (addComputerBlocking(details, true)) {
+                    LimeLog.info("Found a Sunshine host on the tailnet at " + address);
+                    return;
+                }
+            }
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+        }
+        checkedTailnetPeers.put(address, SystemClock.elapsedRealtime());
+    }
+
+    private static boolean isComputerOs(String os) {
+        return "windows".equals(os) || "linux".equals(os) || "macOS".equals(os);
+    }
+
+    private boolean isKnownAddress(String address) {
+        synchronized (pollingTuples) {
+            for (PollingTuple tuple : pollingTuples) {
+                ComputerDetails computer = tuple.computer;
+                for (ComputerDetails.AddressTuple known : new ComputerDetails.AddressTuple[]{computer.localAddress,
+                        computer.remoteAddress, computer.manualAddress, computer.ipv6Address, computer.activeAddress}) {
+                    if (known != null && address.equals(known.address)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    private boolean isIgnoredByTailnetDiscovery(String uuid) {
+        return getSharedPreferences(TAILNET_DISCOVERY_PREFS, MODE_PRIVATE)
+                .getStringSet(PREF_IGNORED_UUIDS, Collections.emptySet()).contains(uuid);
+    }
+
+    private synchronized void setIgnoredByTailnetDiscovery(String uuid, boolean ignored) {
+        if (uuid == null) {
+            return;
+        }
+        SharedPreferences prefs = getSharedPreferences(TAILNET_DISCOVERY_PREFS, MODE_PRIVATE);
+        Set<String> uuids = new HashSet<>(prefs.getStringSet(PREF_IGNORED_UUIDS, Collections.emptySet()));
+        if (ignored ? uuids.add(uuid) : uuids.remove(uuid)) {
+            prefs.edit().putStringSet(PREF_IGNORED_UUIDS, uuids).apply();
+        }
     }
 
     private MdnsDiscoveryListener createDiscoveryListener() {
@@ -587,6 +724,11 @@ public class ComputerManagerService extends Service {
     }
 
     public boolean addComputerBlocking(ComputerDetails fakeDetails) throws InterruptedException {
+        return addComputerBlocking(fakeDetails, false);
+    }
+
+    // onlyNew is for tailnet discovery: hosts already listed, or removed by the user, are left alone
+    private boolean addComputerBlocking(ComputerDetails fakeDetails, boolean onlyNew) throws InterruptedException {
         // Block while we try to fill the details
 
         // We cannot use runPoll() here because it will attempt to persist the state of the machine
@@ -597,11 +739,18 @@ public class ComputerManagerService extends Service {
             synchronized (pollingTuples) {
                 for (PollingTuple tuple : pollingTuples) {
                     if (tuple.computer.uuid.equals(fakeDetails.uuid)) {
+                        if (onlyNew) {
+                            return false;
+                        }
                         fakeDetails.serverCert = tuple.computer.serverCert;
                         existingNetworkLock = tuple.networkLock;
                         break;
                     }
                 }
+            }
+
+            if (onlyNew && isIgnoredByTailnetDiscovery(fakeDetails.uuid)) {
+                return false;
             }
 
             // Poll again, possibly with the pinned cert, to get accurate pairing information.
@@ -614,6 +763,10 @@ public class ComputerManagerService extends Service {
         // If the machine is reachable, it was successful
         if (fakeDetails.state == ComputerDetails.State.ONLINE) {
             LimeLog.info("New PC ("+fakeDetails.name+") is UUID "+fakeDetails.uuid);
+            if (!onlyNew) {
+                // Added by hand or seen on the LAN again: tailnet discovery may list it again too
+                setIgnoredByTailnetDiscovery(fakeDetails.uuid, false);
+            }
 
             // Start a polling thread for this machine
             addTuple(fakeDetails);
@@ -628,6 +781,9 @@ public class ComputerManagerService extends Service {
         if (!getLocalDatabaseReference()) {
             return;
         }
+
+        // Otherwise tailnet discovery would bring it back within a minute
+        setIgnoredByTailnetDiscovery(computer.uuid, true);
 
         // Remove it from the database
         dbManager.deleteComputer(computer);

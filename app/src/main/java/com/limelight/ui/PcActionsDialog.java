@@ -9,6 +9,7 @@ import android.widget.TextView;
 import com.limelight.R;
 import com.limelight.nvstream.http.ComputerDetails;
 import com.limelight.nvstream.http.PairingManager;
+import com.limelight.tailnet.TailnetManager;
 import com.limelight.ui.BaseFragmentDialog.BaseGameMenuDialog;
 
 public final class PcActionsDialog extends BaseGameMenuDialog {
@@ -62,7 +63,7 @@ public final class PcActionsDialog extends BaseGameMenuDialog {
         Button deleteButton = view.findViewById(R.id.btn_pc_actions_delete);
 
         titleView.setText(valueOrUnavailable(computer.name));
-        detailsView.setText(getString(
+        String details = getString(
                 R.string.pc_actions_details_format,
                 getStateText(computer.state),
                 addressText(computer.activeAddress),
@@ -74,7 +75,14 @@ public final class PcActionsDialog extends BaseGameMenuDialog {
                 valueOrUnavailable(computer.macAddress),
                 getPairStateText(computer.pairState),
                 computer.runningGameId,
-                computer.httpsPort));
+                computer.httpsPort);
+        TailnetManager.Path path = computer.activeAddress != null
+                ? TailnetManager.get(view.getContext()).getPath(computer.activeAddress.address) : null;
+        if (path != null) {
+            // As tailscale status and tailscale ping report it
+            details += "\n" + getString(R.string.pc_actions_tailscale_path, path.statusName(), path.latencyMs);
+        }
+        detailsView.setText(details);
 
         boolean canOpenApps = computer.state == ComputerDetails.State.ONLINE &&
                 computer.pairState == PairingManager.PairState.PAIRED;
