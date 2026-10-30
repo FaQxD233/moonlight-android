@@ -54,11 +54,3 @@ jobs:
           name: moonlight-nonRoot-debug
           path: app/build/outputs/apk/nonRoot/debug/*.apk
           if-no-files-found: error
-
-      # The resolved module versions, to pin by committing them
-      - uses: actions/upload-artifact@v7
-        with:
-          name: tailnet-go-modules
-          path: |
-            tailnet/go.mod
-            tailnet/go.sum

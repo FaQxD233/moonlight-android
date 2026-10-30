@@ -11,9 +11,13 @@ if [ -z "${ANDROID_NDK_HOME:-}" ]; then
     export ANDROID_NDK_HOME
 fi
 
-go install golang.org/x/mobile/cmd/gomobile@latest golang.org/x/mobile/cmd/gobind@latest
+# go.mod and go.sum pin every dependency, gomobile included, so builds don't change by
+# themselves. To update, run for example
+#   go get tailscale.com@v1.106.0 golang.org/x/mobile@latest && go mod tidy
+# here and commit both files.
+mobile="$(go list -m -f '{{.Version}}' golang.org/x/mobile)"
+go install "golang.org/x/mobile/cmd/gomobile@$mobile" "golang.org/x/mobile/cmd/gobind@$mobile"
 export PATH="$(go env GOPATH)/bin:$PATH"
-go mod tidy
 # The bridge's own tests, on this machine; they also check Taildrop's file store is still linked
 go test ./...
 gomobile init
