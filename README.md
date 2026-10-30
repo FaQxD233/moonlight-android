@@ -98,7 +98,7 @@ Windows PowerShell 使用 `./gradlew.bat` 执行相同参数。APK 输出到 `ap
 
 内置 Tailscale 同样是可选组件：在 Linux 或 macOS 上安装 Go（版本见 `tailnet/go.mod`）后运行 `tailnet/build.sh`，生成 `app/libs-tailnet/tailnet.aar` 再按上面的命令构建；没有这个文件时，该功能不会编译进 APK。推送到 GitHub 后，Actions 会自动完成整个构建并上传 APK。
 
-正式版：在仓库的 Actions secrets 中设置 `RELEASE_KEYSTORE_BASE64`（签名密钥库的 base64）和 `RELEASE_KEYSTORE_PASSWORD`，推送 `v` 开头的标签（例如 `v26.10.29`）后，Actions 会构建签名的正式版 APK（包名 `com.faqxd.moonlight`）并发布到 GitHub Releases。
+正式版：在仓库的 Actions secrets 中设置 `RELEASE_KEYSTORE_BASE64`（签名密钥库的 base64）和 `RELEASE_KEYSTORE_PASSWORD`，推送 `v` 开头的标签（例如 `v26.10.29`）后，Actions 会构建签名的正式版 APK（包名 `com.faqxd.moonlight`）并发布到 GitHub Releases。每次推送自动构建的调试版（包名 `com.limelight.debug`）也用同一把密钥签名，新版可以直接覆盖安装。
 
 ## 交流与贡献
 
