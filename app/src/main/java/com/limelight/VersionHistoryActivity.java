@@ -76,7 +76,7 @@ public final class VersionHistoryActivity extends BaseActivity {
             versionView.setText(getString(R.string.version_history_version_format, versionName));
             descriptionView.setText(description);
 
-            if (entry.getCode() == BuildConfig.AXI_CODE) {
+            if (entry.getCode() == BuildConfig.VERSION_CODE) {
                 badgeView.setText(R.string.version_history_current);
                 badgeView.setVisibility(View.VISIBLE);
             }

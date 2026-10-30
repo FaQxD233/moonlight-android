@@ -36,8 +36,9 @@ import okhttp3.Response;
 
 public final class UpdateChecker {
 
-    private static final String UPDATE_CONFIG_URL = "https://www.axixi.top/res/config/anappversion.json";
-    private static final String FALLBACK_UPDATE_URL = "https://pan.quark.cn/s/9a334d831290";
+    // This fork's releases; each carries an update.json in the format read below (see release.yml)
+    public static final String RELEASES_URL = "https://github.com/FaQxD233/moonlight-android/releases";
+    private static final String UPDATE_CONFIG_URL = RELEASES_URL + "/latest/download/update.json";
     private static final String PREF_SKIPPED_UPDATE_CODE = "pref_skipped_update_code";
 
     private static final OkHttpClient CLIENT = new OkHttpClient();
@@ -89,6 +90,13 @@ public final class UpdateChecker {
     }
 
     public static void checkForUpdates(Activity activity, boolean interactive) {
+        // Debug builds are a different app from the releases, so there is nothing to update them to
+        if (BuildConfig.DEBUG) {
+            if (interactive) {
+                showToast(activity, "调试版不检查更新");
+            }
+            return;
+        }
         SpinnerDialog spinner = null;
         if (interactive) {
             spinner = SpinnerDialog.displayDialog(activity, "检查更新", "正在获取版本信息...", false);
@@ -112,6 +120,7 @@ public final class UpdateChecker {
                         showToast(activity, parseError
                                 ? "更新信息解析失败，已打开默认下载链接"
                                 : "检查更新失败，已打开默认下载链接");
+                        openUrl(activity, RELEASES_URL);
                     }
                 });
             }
@@ -219,7 +228,7 @@ public final class UpdateChecker {
             return;
         }
 
-        if (latest.code <= BuildConfig.AXI_CODE) {
+        if (latest.code <= BuildConfig.VERSION_CODE) {
             if (interactive) {
                 showToast(activity, "当前已是最新版本");
             }
@@ -243,7 +252,7 @@ public final class UpdateChecker {
         View cancelButton = dialogView.findViewById(R.id.btn_cancel_update);
         View downloadButton = dialogView.findViewById(R.id.btn_download_update);
 
-        versionsView.setText("当前版本：" + BuildConfig.VERSION_NAME + " (" + BuildConfig.AXI_CODE + ")"
+        versionsView.setText("当前版本：" + BuildConfig.VERSION_NAME + " (" + BuildConfig.VERSION_CODE + ")"
                 + "\n最新版本：" + safeText(latest.versionName, "未知版本") + " (" + latest.code + ")");
         descView.setText(TextUtils.isEmpty(description) ? "暂无更新说明。" : description);
         skipRow.setVisibility(interactive ? View.GONE : View.VISIBLE);

@@ -82,7 +82,7 @@ public class AboutActivity extends BaseActivity implements View.OnClickListener 
         }
 
         if (v.getId() == R.id.iv_github) {
-            UpdateChecker.openUrl(this,"https://github.com/Axixi2233/moonlight-android/releases");
+            UpdateChecker.openUrl(this, UpdateChecker.RELEASES_URL);
             return;
         }
 

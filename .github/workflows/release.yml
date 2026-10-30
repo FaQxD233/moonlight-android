@@ -87,13 +87,48 @@ jobs:
           mkdir -p dist
           cp "$apk" "dist/moonlight-$VERSION_NAME.apk"
 
+      # The notes list the commits since the last release. update.json, which the app's update
+      # check reads, carries them with this version and the earlier ones.
+      - name: Write the release notes and update.json
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # The commits after tag $1 (or the last few when there is none) up to $2
+          notes_for() {
+            if [ -n "$1" ]; then
+              git log --no-merges --format='- %s' "$1..$2"
+            else
+              git log --no-merges --format='- %s' --max-count=15 "$2"
+            fi
+          }
+          repo="https://github.com/$GITHUB_REPOSITORY"
+          prev=$(git describe --tags --abbrev=0 --match 'v*' HEAD^ 2>/dev/null || true)
+          notes_for "$prev" HEAD > dist/notes.md
+          history='[]'
+          if [ -n "$prev" ]; then
+            if gh release download "$prev" --pattern update.json --output prev.json 2>/dev/null; then
+              history=$(jq -c '[.data.latest] + (.data.history // [])' prev.json)
+            else
+              # A release from before update.json existed
+              before=$(git describe --tags --abbrev=0 --match 'v*' "$prev^" 2>/dev/null || true)
+              history=$(jq -nc --argjson code "$(git rev-list --count "$prev")" --arg name "${prev#v}" \
+                --arg desc "$(notes_for "$before" "$prev")" --arg github "$repo/releases/tag/$prev" \
+                '[{code: $code, versionName: $name, desc: $desc, github: $github}]')
+            fi
+          fi
+          jq -n --argjson code "$VERSION_CODE" --arg name "$VERSION_NAME" --rawfile desc dist/notes.md \
+            --arg github "$repo/releases/tag/$GITHUB_REF_NAME" --argjson history "$history" \
+            '{data: {latest: {code: $code, versionName: $name, desc: $desc, github: $github}, history: $history[:30]}}' \
+            > dist/update.json
+          cat dist/notes.md dist/update.json
+
       - name: Publish the GitHub Release
         if: github.ref_type == 'tag'
         env:
           GH_TOKEN: ${{ github.token }}
         run: >
-          gh release create "$GITHUB_REF_NAME" "dist/moonlight-$VERSION_NAME.apk"
-          --title "$GITHUB_REF_NAME" --generate-notes --verify-tag
+          gh release create "$GITHUB_REF_NAME" "dist/moonlight-$VERSION_NAME.apk" dist/update.json
+          --title "$GITHUB_REF_NAME" --notes-file dist/notes.md --verify-tag
 
       - uses: actions/upload-artifact@v7
         if: github.event_name == 'workflow_dispatch'
