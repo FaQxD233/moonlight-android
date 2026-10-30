@@ -782,6 +782,44 @@
 
 
     <PreferenceCategory
+        android:key="category_file_transfer"
+        android:title="@string/file_transfer_category">
+
+        <Preference
+            android:key="received_files"
+            android:title="@string/received_files_title"
+            android:summary="@string/received_files_summary" />
+
+        <CheckBoxPreference
+            android:key="checkbox_tailnet_background"
+            android:title="@string/tailnet_background_pref_title"
+            android:summary="@string/tailnet_background_pref_summary"
+            android:defaultValue="false" />
+
+        <CheckBoxPreference
+            android:key="checkbox_enable_localsend"
+            android:title="@string/localsend_title"
+            android:summary="@string/localsend_enable_summary"
+            android:defaultValue="false" />
+
+        <EditTextPreference
+            android:key="edit_localsend_alias"
+            android:title="@string/localsend_alias_title"
+            android:summary="@string/localsend_alias_summary"
+            android:dialogTitle="@string/localsend_alias_title"
+            android:dependency="checkbox_enable_localsend"
+            android:singleLine="true" />
+
+        <CheckBoxPreference
+            android:key="checkbox_localsend_auto_accept"
+            android:title="@string/localsend_auto_accept_title"
+            android:summary="@string/localsend_auto_accept_summary"
+            android:dependency="checkbox_enable_localsend"
+            android:defaultValue="false" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory
         android:key="category_tailnet"
         android:title="@string/tailnet_category">
 
@@ -795,18 +833,6 @@
             android:key="tailnet_account"
             android:title="@string/tailnet_account_title"
             android:summary="@string/tailnet_account_summary" />
-
-        <Preference
-            android:key="received_files"
-            android:title="@string/received_files_title"
-            android:summary="@string/received_files_summary" />
-
-        <CheckBoxPreference
-            android:key="checkbox_tailnet_background"
-            android:title="@string/tailnet_background_pref_title"
-            android:summary="@string/tailnet_background_pref_summary"
-            android:dependency="checkbox_enable_tailnet"
-            android:defaultValue="false" />
 
         <EditTextPreference
             android:key="edit_tailnet_control_url"

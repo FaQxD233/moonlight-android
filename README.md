@@ -27,6 +27,7 @@
 - 息屏、切换后台后恢复串流；后台连接中断时，返回应用可自动尝试回连。
 - 内置 Tailscale（可选）：连接 tailnet 上的主机时，无需在手机上安装或打开 Tailscale App，也不占用 VPN；自己账号下开着 Sunshine 的电脑会自动出现在主机列表，卡片上显示 tailscale ping 测到的线路（direct / relay / peer-relay）和延迟。
 - 文件传输：开启内置 Tailscale 后，在电脑上右键文件 → Send with Tailscale 即可发到手机，自动保存到 下载/月光 并通知；在手机上分享文件时选“发送到电脑”，即可用 Taildrop 发回电脑；打开“后台接收文件”后，App 在后台也能接收。
+- 局域网互传（LocalSend）：不用 Tailscale 时，和同一局域网里运行 [LocalSend](https://localsend.org) 的电脑双向互传文件，收到文件前会先询问（也可以设为自动接收）。
 - 支持横竖屏切换、画面缩放与顶部对齐，适应手机、平板和折叠屏的操作习惯。
 
 ### 画面与外接显示

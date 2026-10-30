@@ -14,6 +14,7 @@ import (
 	// the PeerAPI handler peers send files to (/v0/put/) and the LocalAPI file
 	// endpoints used below. Received files wait in the state directory until
 	// SaveWaitingFile moves them.
+	"limelight/tailnet/internal/meter"
 	_ "tailscale.com/feature/taildrop"
 	"tailscale.com/tailcfg"
 )
@@ -125,7 +126,7 @@ var (
 
 // SendFile sends size bytes (-1 if unknown) read from fd, a readable descriptor
 // the app opened, to the device id as name with Taildrop. It reports progress
-// every progressInterval and when done. fd is always closed.
+// every meter.Interval and when done. fd is always closed.
 func SendFile(id, name string, fd int, size int64, progress Progress) error {
 	in := os.NewFile(uintptr(fd), name)
 	defer in.Close()
@@ -138,9 +139,9 @@ func SendFile(id, name string, fd int, size int64, progress Progress) error {
 	if err != nil {
 		return err
 	}
-	r := &progressReader{r: in, progress: progress}
+	r := &meter.Reader{R: in, Report: progress.Sent}
 	err = lc.PushFile(sendContext(), tailcfg.StableNodeID(id), size, name, r)
-	progress.Sent(r.sent)
+	progress.Sent(r.Sent)
 	return err
 }
 
@@ -162,24 +163,4 @@ func CancelSends() {
 		sendCancel()
 		sendCtx, sendCancel = nil, nil
 	}
-}
-
-const progressInterval = 500 * time.Millisecond
-
-// progressReader reports the bytes read through it at most every progressInterval.
-type progressReader struct {
-	r        io.Reader
-	progress Progress
-	sent     int64
-	last     time.Time
-}
-
-func (p *progressReader) Read(b []byte) (int, error) {
-	n, err := p.r.Read(b)
-	p.sent += int64(n)
-	if now := time.Now(); now.Sub(p.last) >= progressInterval {
-		p.last = now
-		p.progress.Sent(p.sent)
-	}
-	return n, err
 }

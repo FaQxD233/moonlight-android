@@ -24,6 +24,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import com.limelight.LimeLog;
 import com.limelight.binding.PlatformBinding;
 import com.limelight.discovery.DiscoveryService;
+import com.limelight.files.LocalSendManager;
 import com.limelight.nvstream.NvConnection;
 import com.limelight.nvstream.http.ComputerDetails;
 import com.limelight.nvstream.http.NvApp;
@@ -1006,6 +1007,7 @@ public class ComputerManagerService extends Service {
     public void onCreate() {
         // Bring the embedded Tailscale node up early so tailnet hosts answer the first poll
         TailnetManager.get(this).startIfEnabledAsync();
+        LocalSendManager.get(this).startIfEnabledAsync();
 
         // Bind to the discovery service
         bindService(new Intent(this, DiscoveryService.class),

@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Builds app/libs-tailnet/tailnet.aar, the embedded Tailscale (tsnet) bindings behind
-# the "Built-in Tailscale" setting. Needs Go (version in go.mod), the Android SDK and
-# an NDK. Without the AAR, Gradle leaves the feature out of the APK.
+# the "Built-in Tailscale" setting, together with LocalSend (./localsend). Needs Go
+# (version in go.mod), the Android SDK and an NDK. Without the AAR, Gradle leaves both
+# features out of the APK.
 set -euo pipefail
 
 cd "$(dirname "$0")"
@@ -28,4 +29,4 @@ mkdir -p ../app/libs-tailnet
 # is 21, and 16 KB page alignment keeps the library loadable on newer devices.
 gomobile bind -target "${TAILNET_TARGET:-android/arm64}" -androidapi 21 -javapkg com.limelight.gobridge \
     -ldflags "-s -w -linkmode=external -extldflags=-Wl,-z,max-page-size=16384" \
-    -o ../app/libs-tailnet/tailnet.aar .
+    -o ../app/libs-tailnet/tailnet.aar . ./localsend

@@ -1,18 +1,20 @@
 package com.limelight.files;
 
+import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
 import android.content.ClipData;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.text.InputType;
 import android.view.View;
+import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import com.limelight.BaseActivity;
 import com.limelight.R;
-import com.limelight.tailnet.TaildropSendService;
 import com.limelight.tailnet.TailnetAccountDialog;
 import com.limelight.tailnet.TailnetManager;
 import com.limelight.ui.ListRows;
@@ -21,7 +23,10 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-/** Picks the device to send files to with Taildrop: files shared from another app, or picked here. */
+/**
+ * Picks the device to send files to, with Taildrop or LocalSend: files shared from another app, or
+ * picked here.
+ */
 public class SendFilesActivity extends BaseActivity {
     private static final int REQUEST_PICK = 7102;
     private static final String STATE_FILES = "files";
@@ -34,6 +39,9 @@ public class SendFilesActivity extends BaseActivity {
     private TextView emptyView;
     private FileTransferStatus status;
     private List<TailnetManager.FileTarget> targets = Collections.emptyList();
+    private List<LocalSendManager.Device> localSendDevices = Collections.emptyList();
+    // Reads since the screen showed, to pace LocalSend's announcement and scan
+    private int reads;
     private boolean askedForNotifications;
     private final FileTransferStatus.Poller poller = new FileTransferStatus.Poller(new FileTransferStatus.Poller.Task() {
         @Override
@@ -41,7 +49,21 @@ public class SendFilesActivity extends BaseActivity {
             TailnetManager tailnet = TailnetManager.get(SendFilesActivity.this);
             status = FileTransferStatus.read(SendFilesActivity.this, tailnet);
             targets = status.problem == null ? tailnet.getFileTargets() : Collections.emptyList();
-            return status.isConnecting() || (status.problem == null && targets.isEmpty());
+            LocalSendManager localSend = LocalSendManager.get(SendFilesActivity.this);
+            if (localSend.isRunning()) {
+                if (reads == 0) {
+                    // The devices around answer now rather than when they next announce themselves
+                    localSend.announce();
+                }
+                else if (reads == 2 && localSend.getDevices().isEmpty()) {
+                    // Multicast often doesn't get through (routers, phones saving power): try each address
+                    localSend.scan();
+                }
+                localSendDevices = localSend.getDevices();
+            }
+            reads++;
+            // LocalSend devices can turn up any time
+            return localSend.isRunning() || status.isConnecting() || (status.problem == null && targets.isEmpty());
         }
 
         @Override
@@ -100,6 +122,8 @@ public class SendFilesActivity extends BaseActivity {
             FileTransferStatus.requestNotificationPermission(this);
         }
         TailnetManager.get(this).startIfEnabledAsync();
+        LocalSendManager.get(this).startIfEnabledAsync();
+        reads = 0;
         poller.start();
     }
 
@@ -173,26 +197,73 @@ public class SendFilesActivity extends BaseActivity {
             emptyView.setVisibility(View.GONE);
             return;
         }
-        CharSequence detail;
-        if (status == null) {
-            detail = getString(R.string.received_files_status_checking);
-        }
-        else if (status.problem != null) {
-            detail = status.problem;
-        }
-        else {
-            detail = getString(R.string.send_files_pick_device);
-        }
-        list.addView(ListRows.create(this, getString(R.string.send_files_count, files.size()), detail,
-                v -> TailnetAccountDialog.show(this)));
+        list.addView(ListRows.create(this, getString(R.string.send_files_count, files.size()),
+                getString(R.string.send_files_pick_device), null));
 
-        emptyView.setVisibility(status != null && status.problem == null && targets.isEmpty() ? View.VISIBLE : View.GONE);
+        // Taildrop: the devices, or why there are none
+        if (status == null || status.problem != null) {
+            CharSequence problem = status == null ? getString(R.string.received_files_status_checking) : status.problem;
+            list.addView(ListRows.create(this, getString(R.string.send_files_tailscale), problem,
+                    v -> TailnetAccountDialog.show(this)));
+        }
         for (TailnetManager.FileTarget target : targets) {
             list.addView(ListRows.create(this, target.name, getString(R.string.send_files_device_detail), v -> {
-                TaildropSendService.send(this, target, files);
-                Toast.makeText(this, R.string.send_files_started, Toast.LENGTH_SHORT).show();
-                finish();
+                FileSendService.send(this, target, files);
+                sending();
             }));
         }
+
+        LocalSendManager localSend = LocalSendManager.get(this);
+        if (localSend.isAvailable() && !localSend.isEnabled()) {
+            list.addView(ListRows.create(this, getString(R.string.localsend_title),
+                    getString(R.string.localsend_send_disabled), null));
+        }
+        else if (localSend.isAvailable()) {
+            for (LocalSendManager.Device device : localSendDevices) {
+                list.addView(ListRows.create(this, device.alias, getString(R.string.localsend_device_detail, device.ip), v -> {
+                    FileSendService.send(this, device, files);
+                    sending();
+                }));
+            }
+            list.addView(ListRows.create(this, getString(R.string.localsend_add_by_ip),
+                    getString(R.string.localsend_add_by_ip_detail), v -> askForAddress()));
+        }
+        emptyView.setVisibility(status != null && targets.isEmpty() && localSendDevices.isEmpty() ? View.VISIBLE : View.GONE);
+    }
+
+    private void sending() {
+        Toast.makeText(this, R.string.send_files_started, Toast.LENGTH_SHORT).show();
+        finish();
+    }
+
+    // For computers LocalSend discovery doesn't find, such as on networks that block multicast
+    private void askForAddress() {
+        EditText input = new EditText(this);
+        input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
+        input.setSingleLine(true);
+        input.setHint("192.168.1.10");
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.localsend_add_by_ip)
+                .setView(input)
+                .setNegativeButton(R.string.dialog_action_cancel, null)
+                .setPositiveButton(android.R.string.ok, (dialog, which) -> {
+                    String address = input.getText().toString().trim();
+                    // A host name or an IPv4/IPv6 address, nothing more
+                    if (!address.matches("[A-Za-z0-9.:\\-]{1,253}")) {
+                        Toast.makeText(this, getString(R.string.localsend_add_failed, address), Toast.LENGTH_LONG).show();
+                        return;
+                    }
+                    new Thread(() -> {
+                        try {
+                            LocalSendManager.get(this).addDevice(address);
+                            runOnUiThread(poller::start);
+                        }
+                        catch (Exception e) {
+                            runOnUiThread(() -> Toast.makeText(this,
+                                    getString(R.string.localsend_add_failed, e.getMessage()), Toast.LENGTH_LONG).show());
+                        }
+                    }, "LocalSend add device").start();
+                })
+                .show();
     }
 }

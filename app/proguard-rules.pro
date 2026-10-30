@@ -31,3 +31,4 @@
 -keep class go.** { *; }
 -keep class com.limelight.gobridge.** { *; }
 -keep class com.limelight.tailnet.GoTailnetBridge { *; }
+-keep class com.limelight.files.GoLocalSendBridge { *; }

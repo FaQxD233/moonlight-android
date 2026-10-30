@@ -12,6 +12,7 @@ import android.preference.PreferenceManager;
 import com.limelight.BuildConfig;
 import com.limelight.LimeLog;
 import com.limelight.R;
+import com.limelight.files.BackgroundReceiveService;
 import com.limelight.utils.CacheHelper;
 
 import org.json.JSONArray;
@@ -42,7 +43,6 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class TailnetManager {
     public static final String PREF_ENABLED = "checkbox_enable_tailnet";
     public static final String PREF_CONTROL_URL = "edit_tailnet_control_url";
-    public static final String PREF_BACKGROUND = "checkbox_tailnet_background";
 
     private static final String BRIDGE_CLASS = "com.limelight.tailnet.GoTailnetBridge";
     private static final String STATE_DIR = "tailnet";
@@ -204,12 +204,11 @@ public final class TailnetManager {
             return;
         }
         // Called while the app is in the foreground, which Android requires to start the service
-        TailnetBackgroundService.update(appContext, wantsBackground());
+        BackgroundReceiveService.update(appContext);
         startNodeAsync();
     }
 
-    // Also used by TailnetBackgroundService when the system restarts it without the app
-    void startNodeAsync() {
+    private void startNodeAsync() {
         runAsync("Tailnet start", () -> {
             try {
                 ensureStarted();
@@ -257,11 +256,6 @@ public final class TailnetManager {
         return started;
     }
 
-    /** Whether to keep the node running while the app is in the background, to receive files. */
-    boolean wantsBackground() {
-        return bridge != null && isEnabled() && prefs.getBoolean(PREF_BACKGROUND, false);
-    }
-
     String awaitWaitingFiles(int timeoutSeconds) {
         return bridge.awaitWaitingFiles(timeoutSeconds);
     }
@@ -289,12 +283,12 @@ public final class TailnetManager {
         return targets;
     }
 
-    void sendFile(String targetId, String name, int fd, long size, TailnetBridge.SendProgress progress)
-            throws Exception {
-        bridge.sendFile(targetId, name, fd, size, progress);
+    /** Sends size bytes (-1 if unknown) from fd, which is closed, to the device targetId with Taildrop. */
+    public void sendFile(String targetId, String name, int fd, long size, SendProgress progress) throws Exception {
+        bridge.sendFile(targetId, name, fd, size, progress::sent);
     }
 
-    void cancelSends() {
+    public void cancelSends() {
         if (bridge != null) {
             bridge.cancelSends();
         }
@@ -510,12 +504,12 @@ public final class TailnetManager {
                 startIfEnabledAsync();
             }
             else {
-                TailnetBackgroundService.update(appContext, false);
+                BackgroundReceiveService.update(appContext);
                 runAsync("Tailnet stop", this::stop);
             }
         }
-        else if (PREF_BACKGROUND.equals(key)) {
-            TailnetBackgroundService.update(appContext, wantsBackground());
+        else if (BackgroundReceiveService.PREF_BACKGROUND.equals(key)) {
+            BackgroundReceiveService.update(appContext);
         }
         else if (PREF_CONTROL_URL.equals(key)) {
             // A node belongs to one control server, so switching servers needs a new login
@@ -563,6 +557,11 @@ public final class TailnetManager {
 
     private static void runAsync(String name, Runnable task) {
         new Thread(task, name).start();
+    }
+
+    /** Told how many bytes of the file being sent have gone so far. */
+    public interface SendProgress {
+        void sent(long bytes);
     }
 
     /** An online device on the tailnet, from tailscale status. */

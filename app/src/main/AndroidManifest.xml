@@ -18,10 +18,8 @@
     <uses-permission android:name="com.android.providers.tv.permission.WRITE_EPG_DATA"/>
 
 
-    <!-- We don't need a MulticastLock on API level 34+ because we use NsdManager for mDNS -->
-    <uses-permission
-        android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE"
-        android:maxSdkVersion="33" />
+    <!-- mDNS needs a MulticastLock up to API level 33 (NsdManager from 34 on); LocalSend discovery always does -->
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
 
     <uses-feature
         android:name="android.hardware.touchscreen"
@@ -165,18 +163,22 @@
             </intent-filter>
         </activity>
         <service
-            android:name=".tailnet.TaildropSendService"
+            android:name=".files.FileSendService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
         <!-- specialUse has no time limit, unlike dataSync from targetSdk 35 on -->
         <service
-            android:name=".tailnet.TailnetBackgroundService"
+            android:name=".files.BackgroundReceiveService"
             android:exported="false"
             android:foregroundServiceType="specialUse">
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="Keeps an embedded Tailscale node online to receive files sent with Taildrop" />
+                android:value="Keeps an embedded Tailscale node and a LocalSend receiver online to receive files" />
         </service>
+        <!-- The Accept and Decline buttons on a LocalSend file offer -->
+        <receiver
+            android:name=".files.LocalSendPrompt$Buttons"
+            android:exported="false" />
         <activity
             android:name=".preferences.AddComputerManually"
             android:resizeableActivity="true"

@@ -64,6 +64,7 @@ public class ReceivedFilesActivity extends BaseActivity {
         super.onResume();
         refresh();
         TailnetManager.get(this).startIfEnabledAsync();
+        LocalSendManager.get(this).startIfEnabledAsync();
         poller.start();
     }
 
@@ -87,6 +88,10 @@ public class ReceivedFilesActivity extends BaseActivity {
         list.removeAllViews();
         list.addView(ListRows.create(this, getString(R.string.received_files_how_to_title), statusText,
                 v -> TailnetAccountDialog.show(this)));
+        LocalSendManager localSend = LocalSendManager.get(this);
+        if (localSend.isAvailable()) {
+            list.addView(ListRows.create(this, getString(R.string.localsend_title), localSendStatus(localSend), null));
+        }
         list.addView(ListRows.create(this, getString(R.string.send_files_action), getString(R.string.send_files_action_summary),
                 v -> startActivity(new Intent(this, SendFilesActivity.class))));
 
@@ -102,6 +107,14 @@ public class ReceivedFilesActivity extends BaseActivity {
             });
             list.addView(row);
         }
+    }
+
+    private String localSendStatus(LocalSendManager localSend) {
+        if (!localSend.isEnabled()) {
+            return getString(R.string.localsend_status_disabled);
+        }
+        return localSend.isRunning() ? getString(R.string.localsend_status_ready, localSend.getAlias())
+                : getString(R.string.localsend_status_starting);
     }
 
     private void open(ReceivedFiles.Entry entry) {
