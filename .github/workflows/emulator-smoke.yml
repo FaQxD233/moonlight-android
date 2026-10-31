@@ -6,6 +6,11 @@ on:
   push:
     branches: ['ci/**']
 
+# A newer push to the same branch replaces a test still running for an older one
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   smoke:
     runs-on: ubuntu-latest

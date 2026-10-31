@@ -1,10 +1,16 @@
 name: Build APK
 
 on:
-  # Branches only: release tags are built by release.yml
+  # Branches only: release tags are built by release.yml. ci/ branches skip this one, since
+  # emulator-smoke.yml and release.yml build and check them already.
   push:
-    branches: ['**']
+    branches-ignore: ['ci/**']
   workflow_dispatch:
+
+# A newer push to the same branch replaces a build still running for an older one
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
