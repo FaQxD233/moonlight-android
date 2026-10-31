@@ -58,6 +58,13 @@
         <item name="android:colorAccent">@color/home_accent_bright</item>
     </style>
 
+    <!-- The Tailscale and file transfer screens: the home screen's background and accent -->
+    <style name="FileTransferTheme" parent="AxiGamePlayTheme.GamePad">
+        <item name="android:windowBackground">@drawable/bg_home_root</item>
+        <item name="android:colorAccent">@color/home_accent_bright</item>
+        <item name="colorAccent">@color/home_accent_bright</item>
+    </style>
+
     <style name="BottomDialog" parent="@android:style/Theme.DeviceDefault.Dialog">
         <item name="android:windowTitleStyle">@null</item>
         <item name="android:windowIsFloating">false</item>

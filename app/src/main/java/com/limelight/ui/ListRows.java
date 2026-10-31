@@ -1,6 +1,7 @@
 package com.limelight.ui;
 
 import android.content.Context;
+import android.text.TextUtils;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.LinearLayout;
@@ -9,7 +10,7 @@ import android.widget.TextView;
 import com.limelight.R;
 import com.limelight.utils.UiHelper;
 
-/** The two-line card rows of the stream log and received file lists. */
+/** The two-line card rows of the stream log list. */
 public final class ListRows {
     private ListRows() {
     }
@@ -26,8 +27,9 @@ public final class ListRows {
         int margin = UiHelper.dpToPx(context, 6);
         params.setMargins(margin, margin, margin, margin);
         row.setLayoutParams(params);
-        row.setFocusable(true);
-        row.setClickable(true);
+        // A row without an action shouldn't look pressable or stop the controller's focus
+        row.setFocusable(onClick != null);
+        row.setClickable(onClick != null);
         row.setOnClickListener(onClick);
 
         TextView titleView = new TextView(context);
@@ -35,6 +37,8 @@ public final class ListRows {
         titleView.setTextColor(0xFFFFFFFF);
         titleView.setTextSize(14);
         titleView.setSingleLine(true);
+        // Unlike the XML attribute, setSingleLine() doesn't add an ellipsis by itself
+        titleView.setEllipsize(TextUtils.TruncateAt.END);
         row.addView(titleView);
 
         TextView detailView = new TextView(context);

@@ -19,6 +19,9 @@ import com.limelight.binding.crypto.AndroidCryptoProvider;
 import com.limelight.binding.input.ControllerHandler;
 import com.limelight.computers.ComputerManagerListener;
 import com.limelight.computers.ComputerManagerService;
+import com.limelight.files.FileTransferActivity;
+import com.limelight.files.ReceivedFiles;
+import com.limelight.files.SendFilesActivity;
 import com.limelight.grid.PcGridAdapter;
 import com.limelight.grid.assets.DiskAssetLoader;
 import com.limelight.nvstream.http.ComputerDetails;
@@ -32,6 +35,7 @@ import com.limelight.preferences.AddComputerManually;
 import com.limelight.preferences.GlPreferences;
 import com.limelight.preferences.PreferenceConfiguration;
 import com.limelight.preferences.StreamSettings;
+import com.limelight.tailnet.TailnetManager;
 import com.limelight.ui.AppDialog;
 import com.limelight.ui.PcActionsDialog;
 import com.limelight.ui.HostAddressDialog;
@@ -124,6 +128,9 @@ public class PcView extends Activity {
     private TextView selectedHostSummary;
     private ComputerObject selectedSummaryComputer;
     private HomeControllerCarouselView controllerCarousel;
+    private View fileTransferDot;
+    // Kept here: SharedPreferences only holds listeners weakly
+    private SharedPreferences.OnSharedPreferenceChangeListener receivedFilesListener;
     private InputManager inputManager;
     private boolean inputListenerRegistered;
     private String selectedControllerKey;
@@ -263,6 +270,14 @@ public class PcView extends Activity {
                 startActivity(i);
             }
         });
+        // Tailscale and file transfer have their own screen in builds with built-in Tailscale
+        boolean fileTransfer = TailnetManager.get(this).isAvailable();
+        findViewById(R.id.fileTransferButtonFrame).setVisibility(fileTransfer ? View.VISIBLE : View.GONE);
+        axButton.setNextFocusRightId(fileTransfer ? R.id.fileTransferButton : View.NO_ID);
+        fileTransferDot = findViewById(R.id.fileTransferDot);
+        findViewById(R.id.fileTransferButton).setOnClickListener(
+                view -> startActivity(new Intent(PcView.this, FileTransferActivity.class)));
+        updateFileTransferDot();
 
         hostCarousel = findViewById(R.id.hostCarousel);
         pageIndicator = findViewById(R.id.homePageIndicator);
@@ -516,6 +531,8 @@ public class PcView extends Activity {
         startComputerUpdates();
         registerInputDeviceListener();
         updateControllerCard();
+        receivedFilesListener = ReceivedFiles.listen(this, this::updateFileTransferDot);
+        updateFileTransferDot();
     }
 
     @Override
@@ -528,6 +545,15 @@ public class PcView extends Activity {
         updateHostRefreshButton();
         stopComputerUpdates(false);
         unregisterInputDeviceListener();
+        ReceivedFiles.stopListening(this, receivedFilesListener);
+        receivedFilesListener = null;
+    }
+
+    // The dot on the file transfer button: files arrived since the received files were looked at
+    private void updateFileTransferDot() {
+        if (fileTransferDot != null) {
+            fileTransferDot.setVisibility(ReceivedFiles.countNew(this) > 0 ? View.VISIBLE : View.GONE);
+        }
     }
 
     @Override
@@ -633,6 +659,11 @@ public class PcView extends Activity {
             @Override
             public void onSwitchAddress(ComputerDetails selectedComputer) {
                 showHostAddressDialog(selectedComputer);
+            }
+
+            @Override
+            public void onSendFiles(ComputerDetails selectedComputer) {
+                SendFilesActivity.startForHost(PcView.this, selectedComputer);
             }
         });
         dialog.show();

@@ -22,6 +22,7 @@ public final class PcActionsDialog extends BaseGameMenuDialog {
         void onShowGameStreamEol();
         void onTestNetwork();
         void onSwitchAddress(ComputerDetails computer);
+        void onSendFiles(ComputerDetails computer);
         void onDeleteComputer(ComputerDetails computer);
         void onDismiss();
     }
@@ -60,6 +61,7 @@ public final class PcActionsDialog extends BaseGameMenuDialog {
         Button gameStreamEolButton = view.findViewById(R.id.btn_pc_actions_gamestream_eol);
         Button networkTestButton = view.findViewById(R.id.btn_pc_actions_network_test);
         Button switchAddressButton = view.findViewById(R.id.btn_pc_actions_switch_address);
+        Button sendFilesButton = view.findViewById(R.id.btn_pc_actions_send_files);
         Button deleteButton = view.findViewById(R.id.btn_pc_actions_delete);
 
         titleView.setText(valueOrUnavailable(computer.name));
@@ -100,6 +102,8 @@ public final class PcActionsDialog extends BaseGameMenuDialog {
         appListButton.setEnabled(canOpenApps);
         appListButton.setFocusable(canOpenApps);
         appListButton.setAlpha(canOpenApps ? 1f : 0.45f);
+        // Taildrop and LocalSend come with built-in Tailscale
+        sendFilesButton.setVisibility(TailnetManager.get(view.getContext()).isAvailable() ? View.VISIBLE : View.GONE);
 
         backButton.setOnClickListener(v -> dismiss());
         resumeButton.setOnClickListener(v -> {
@@ -148,6 +152,12 @@ public final class PcActionsDialog extends BaseGameMenuDialog {
             dismiss();
             if (listener != null) {
                 listener.onTestNetwork();
+            }
+        });
+        sendFilesButton.setOnClickListener(v -> {
+            dismiss();
+            if (listener != null) {
+                listener.onSendFiles(computer);
             }
         });
         deleteButton.setOnClickListener(v -> {

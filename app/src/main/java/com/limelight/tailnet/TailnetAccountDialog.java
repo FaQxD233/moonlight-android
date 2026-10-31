@@ -7,7 +7,6 @@ import android.content.ClipboardManager;
 import android.content.Context;
 import android.text.InputType;
 import android.text.TextUtils;
-import android.widget.EditText;
 import android.widget.Toast;
 
 import com.limelight.R;
@@ -16,7 +15,7 @@ import com.limelight.utils.UpdateChecker;
 
 import java.io.IOException;
 
-/** Settings flow for logging the embedded Tailscale node in or out. */
+/** Logging the embedded Tailscale node in or out, from the Tailscale and file transfer screens. */
 public final class TailnetAccountDialog {
     private static final long CONNECT_TIMEOUT_MS = 20000;
     // The panic message and the first frames; the full report goes to the clipboard
@@ -124,21 +123,15 @@ public final class TailnetAccountDialog {
     }
 
     private static void askAuthKey(Activity activity, TailnetManager tailnet) {
-        EditText input = new EditText(activity);
-        input.setSingleLine(true);
-        input.setHint(R.string.tailnet_auth_key_hint);
-        input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
-        new AlertDialog.Builder(activity)
-                .setTitle(R.string.tailnet_use_auth_key)
-                .setView(input)
-                .setPositiveButton(R.string.dialog_action_confirm, (dialog, which) -> {
-                    String authKey = input.getText().toString().trim();
+        AppDialog.showInput(activity, activity.getString(R.string.tailnet_use_auth_key), null,
+                activity.getString(R.string.tailnet_auth_key_hint), null,
+                InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD, text -> {
+                    String authKey = text.trim();
                     if (!authKey.isEmpty()) {
                         loginWithAuthKey(activity, tailnet, authKey);
                     }
-                })
-                .setNegativeButton(R.string.dialog_action_cancel, null)
-                .show();
+                    return null;
+                });
     }
 
     private static void loginWithAuthKey(Activity activity, TailnetManager tailnet, String authKey) {

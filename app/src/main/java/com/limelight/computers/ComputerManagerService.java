@@ -252,6 +252,7 @@ public class ComputerManagerService extends Service {
     public class ComputerManagerBinder extends Binder {
         /** Queue one fresh poll per host, without interrupting in-flight network requests. */
         public void refreshComputers(Runnable onComplete) {
+            rediscoverTailnetHosts();
             synchronized (pollingTuples) {
                 AtomicInteger remaining = new AtomicInteger(1);
                 Runnable completed = () -> {
@@ -542,6 +543,16 @@ public class ComputerManagerService extends Service {
         if (tailnetDiscovery != null) {
             tailnetDiscovery.interrupt();
             tailnetDiscovery = null;
+        }
+    }
+
+    // A manual refresh probes every tailnet computer right away, including those that had no
+    // Sunshine running a moment ago and wouldn't be probed again for minutes
+    private synchronized void rediscoverTailnetHosts() {
+        if (tailnetDiscovery != null) {
+            stopTailnetDiscovery();
+            checkedTailnetPeers.clear();
+            startTailnetDiscovery();
         }
     }
 

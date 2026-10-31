@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Run by emulator-smoke.yml inside the emulator session: installs the debug build, turns on
-# built-in Tailscale, launches the app and prints the Go crash log and logcat excerpts.
+# built-in Tailscale, launches the app and prints the Go crash log and logcat excerpts, then
+# takes screenshots of the home and file transfer screens.
 # Launches 1 and 2 start a node that has never logged in. Launch 3 starts one with a stored
 # login (made up, so control won't accept it) and a file waiting in Taildrop's inbox, which
 # the app should move to Downloads/月光, and receives a file the way LocalSend sends one.
@@ -98,15 +99,54 @@ adb shell "run-as $pkg ls -la $inbox" || true
 adb shell content query --uri content://media/external/downloads --projection _display_name:relative_path:_size || true
 adb shell am force-stop "$pkg"
 
+# The file transfer screens ask for notifications when they're off; allowed here so the
+# screenshots below show the screens rather than the question
+adb shell pm grant "$pkg" android.permission.POST_NOTIFICATIONS
+
 # Share the received file with "Send to computer", as another app would
 id=$(adb shell content query --uri content://media/external/downloads --projection _id \
     --where "_display_name=\'ci-smoke.txt\'" | sed -n 's/.*_id=\([0-9]*\).*/\1/p' | head -n 1)
 adb logcat -c
 adb shell am start -W -a android.intent.action.SEND -t text/plain --grant-read-uri-permission \
-    --eu android.intent.extra.STREAM "content://media/external/downloads/$id" -n "$pkg/com.limelight.files.SendFilesActivity"
+    --eu android.intent.extra.STREAM "content://media/external/downloads/$id" -n "$pkg/com.limelight.files.ShareToComputer"
 sleep 20
 echo "=== share screen: app process after 20 s ==="
 adb shell pidof "$pkg" || echo "not running"
+adb exec-out screencap -p > screen-send.png
 adb logcat -d -v threadtime > logcat-share.txt
 grep -E "AndroidRuntime|FATAL|SendFiles|aildrop" logcat-share.txt | tail -n 50
+adb shell am force-stop "$pkg"
+
+# Screenshots of the home screen and the file transfer screens, uploaded with the logs to check
+# their layout. Only root may start the screens that aren't exported.
+adb root > /dev/null 2>&1
+adb wait-for-device
+adb logcat -c
+shoot() {
+    adb shell am start -W -n "$pkg/$2" > /dev/null
+    sleep 8
+    adb exec-out screencap -p > "screen-$1.png"
+}
+shoot home com.limelight.PcView
+shoot transfer com.limelight.files.FileTransferActivity
+# The rest of the file transfer screen, a swipe at a time
+size=$(adb shell wm size | sed -n 's/.*: \([0-9]*\)x\([0-9]*\).*/\1 \2/p' | tail -n 1)
+width=${size% *}
+height=${size#* }
+for part in 2 3; do
+    adb shell input swipe $((width / 2)) $((height * 4 / 5)) $((width / 2)) $((height / 5)) 500
+    sleep 2
+    adb exec-out screencap -p > "screen-transfer-$part.png"
+done
+shoot received com.limelight.files.ReceivedFilesActivity
+adb shell settings put system accelerometer_rotation 0
+adb shell settings put system user_rotation 1
+sleep 4
+adb exec-out screencap -p > screen-received-land.png
+shoot transfer-land com.limelight.files.FileTransferActivity
+adb shell settings put system user_rotation 0
+echo "=== screens: app process ==="
+adb shell pidof "$pkg" || echo "not running"
+adb logcat -d -v threadtime > logcat-screens.txt
+grep -E "AndroidRuntime|FATAL" logcat-screens.txt | tail -n 50
 adb shell am force-stop "$pkg"

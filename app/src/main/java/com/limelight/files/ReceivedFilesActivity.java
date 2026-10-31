@@ -1,123 +1,157 @@
 package com.limelight.files;
 
-import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
-import android.content.Intent;
+import android.content.SharedPreferences;
+import android.net.Uri;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.text.format.Formatter;
-import android.view.View;
 import android.widget.LinearLayout;
-import android.widget.TextView;
 import android.widget.Toast;
 
+import com.bumptech.glide.Glide;
 import com.limelight.BaseActivity;
 import com.limelight.R;
-import com.limelight.tailnet.TailnetAccountDialog;
-import com.limelight.tailnet.TailnetManager;
-import com.limelight.ui.ListRows;
+import com.limelight.ui.AppDialog;
 
-import java.text.SimpleDateFormat;
+import java.text.DateFormat;
+import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
+import java.util.Set;
 
-/** File transfer: how to send files from a computer, sending files to one, and the files received so far. */
+/** The files received so far, newest first and by day, to open, share or delete. */
 public class ReceivedFilesActivity extends BaseActivity {
-    // The node may still be connecting when the screen opens; check again a few times
-    private static final int STATUS_READS = 6;
-    private static final long STATUS_RETRY_MS = 2000;
-
-    private LinearLayout list;
-    private TextView emptyView;
-    private CharSequence statusText;
-    private FileTransferStatus status;
-    private final FileTransferStatus.Poller poller = new FileTransferStatus.Poller(new FileTransferStatus.Poller.Task() {
-        @Override
-        public boolean read() {
-            status = FileTransferStatus.read(ReceivedFilesActivity.this, TailnetManager.get(ReceivedFilesActivity.this));
-            return status.isConnecting();
-        }
-
-        @Override
-        public void show() {
-            statusText = describe(status);
-            refresh();
-        }
-    }, STATUS_READS, STATUS_RETRY_MS);
+    private LinearLayout content;
+    private SharedPreferences.OnSharedPreferenceChangeListener entriesListener;
+    // Entries whose files another app moved or deleted
+    private final Set<String> missing = new HashSet<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        // Same screen as the stream log list
-        setContentView(R.layout.activity_stream_logs);
-        ((TextView) findViewById(R.id.stream_log_title)).setText(R.string.received_files_title);
-        findViewById(R.id.iv_back).setOnClickListener(v -> finish());
-        list = findViewById(R.id.stream_log_list);
-        emptyView = findViewById(R.id.stream_log_empty);
-        emptyView.setText(R.string.received_files_empty);
-        statusText = getString(R.string.received_files_status_checking);
-        FileTransferStatus.requestNotificationPermission(this);
+        content = FilePage.setUp(this, R.string.received_files_title);
+        FilePage.addAction(this, R.drawable.ic_ft_clean, R.string.received_files_clean, v -> cleanUp());
     }
 
     @Override
     protected void onResume() {
         super.onResume();
+        // Files arriving while the list is open show up in it, already seen
+        entriesListener = ReceivedFiles.listen(this, this::refresh);
         refresh();
-        TailnetManager.get(this).startIfEnabledAsync();
-        LocalSendManager.get(this).startIfEnabledAsync();
-        poller.start();
     }
 
     @Override
     protected void onPause() {
         super.onPause();
-        poller.stop();
-    }
-
-    private CharSequence describe(FileTransferStatus status) {
-        if (status.problem != null) {
-            return status.problem;
-        }
-        // The device name senders pick is the first label of its MagicDNS name
-        String name = status.status.name != null ? status.status.name : "";
-        int dot = name.indexOf('.');
-        return getString(R.string.received_files_status_ready, dot > 0 ? name.substring(0, dot) : name);
+        ReceivedFiles.stopListening(this, entriesListener);
+        entriesListener = null;
     }
 
     private void refresh() {
-        list.removeAllViews();
-        list.addView(ListRows.create(this, getString(R.string.received_files_how_to_title), statusText,
-                v -> TailnetAccountDialog.show(this)));
-        LocalSendManager localSend = LocalSendManager.get(this);
-        if (localSend.isAvailable()) {
-            list.addView(ListRows.create(this, getString(R.string.localsend_title), localSendStatus(localSend), null));
-        }
-        list.addView(ListRows.create(this, getString(R.string.send_files_action), getString(R.string.send_files_action_summary),
-                v -> startActivity(new Intent(this, SendFilesActivity.class))));
-
-        List<ReceivedFiles.Entry> entries = ReceivedFiles.list(this);
-        emptyView.setVisibility(entries.isEmpty() ? View.VISIBLE : View.GONE);
-        SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault());
-        for (ReceivedFiles.Entry entry : entries) {
-            String detail = format.format(new Date(entry.time)) + "  ·  " + Formatter.formatShortFileSize(this, entry.size);
-            View row = ListRows.create(this, entry.name, detail, v -> open(entry));
-            row.setOnLongClickListener(v -> {
-                showActions(entry);
-                return true;
-            });
-            list.addView(row);
-        }
+        ReceivedFiles.markViewed(this);
+        render();
+        findMissing();
     }
 
-    private String localSendStatus(LocalSendManager localSend) {
-        if (!localSend.isEnabled()) {
-            return getString(R.string.localsend_status_disabled);
+    // Opening every file takes a moment, so off the main thread
+    private void findMissing() {
+        List<ReceivedFiles.Entry> entries = ReceivedFiles.list(this);
+        new Thread(() -> {
+            Set<String> gone = new HashSet<>();
+            for (ReceivedFiles.Entry entry : entries) {
+                if (!ReceivedFiles.exists(this, entry)) {
+                    gone.add(entry.uri);
+                }
+            }
+            runOnUiThread(() -> {
+                if (!gone.equals(missing)) {
+                    missing.clear();
+                    missing.addAll(gone);
+                    render();
+                }
+            });
+        }, "Received files check").start();
+    }
+
+    private void render() {
+        Object focus = FilePage.focusedKey(content);
+        content.removeAllViews();
+        FilePage.note(content, getString(R.string.received_files_location, ReceivedFiles.folder(this)));
+        List<ReceivedFiles.Entry> entries = ReceivedFiles.list(this);
+        if (entries.isEmpty()) {
+            FilePage.empty(content, R.drawable.ic_ft_inbox, getString(R.string.received_files_empty),
+                    getString(R.string.received_files_help), v -> FilePage.showHelp(this));
+            return;
         }
-        return localSend.isRunning() ? getString(R.string.localsend_status_ready, localSend.getAlias())
-                : getString(R.string.localsend_status_starting);
+
+        Calendar day = Calendar.getInstance();
+        day.set(Calendar.HOUR_OF_DAY, 0);
+        day.set(Calendar.MINUTE, 0);
+        day.set(Calendar.SECOND, 0);
+        day.set(Calendar.MILLISECOND, 0);
+        long today = day.getTimeInMillis();
+        day.add(Calendar.DAY_OF_MONTH, -1);
+        long yesterday = day.getTimeInMillis();
+        DateFormat dateFormat = DateFormat.getDateInstance(DateFormat.MEDIUM);
+        DateFormat timeFormat = android.text.format.DateFormat.getTimeFormat(this);
+
+        String shownDay = null;
+        for (ReceivedFiles.Entry entry : entries) {
+            String entryDay = entry.time >= today ? getString(R.string.received_files_today)
+                    : entry.time >= yesterday ? getString(R.string.received_files_yesterday)
+                    : dateFormat.format(new Date(entry.time));
+            if (!entryDay.equals(shownDay)) {
+                FilePage.section(content, entryDay, null);
+                shownDay = entryDay;
+            }
+
+            boolean gone = missing.contains(entry.uri);
+            List<String> details = new ArrayList<>();
+            if (!entry.source().isEmpty()) {
+                details.add(entry.source());
+            }
+            details.add(Formatter.formatShortFileSize(this, entry.size));
+            details.add(timeFormat.format(new Date(entry.time)));
+            FilePage.Row row = FilePage.row(content).icon(typeIcon(entry.mimeType)).title(entry.name).middleEllipsis()
+                    .detail(gone ? getString(R.string.received_files_missing) : TextUtils.join(" · ", details))
+                    .key(entry.uri)
+                    .onClick(v -> open(entry))
+                    .more(getString(R.string.received_files_more), v -> showActions(entry));
+            if (gone) {
+                row.dimmed();
+            }
+            else if (entry.mimeType.startsWith("image/") || entry.mimeType.startsWith("video/")) {
+                Glide.with(this).load(Uri.parse(entry.uri)).centerCrop().into(row.picture());
+            }
+        }
+        FilePage.restoreFocus(content, focus);
+    }
+
+    private static int typeIcon(String mimeType) {
+        if (mimeType.startsWith("image/")) {
+            return R.drawable.ic_ft_image;
+        }
+        if (mimeType.startsWith("video/")) {
+            return R.drawable.ic_ft_video;
+        }
+        if (mimeType.startsWith("audio/")) {
+            return R.drawable.ic_ft_audio;
+        }
+        if ("application/vnd.android.package-archive".equals(mimeType)) {
+            return R.drawable.ic_ft_apk;
+        }
+        return R.drawable.ic_ft_file;
     }
 
     private void open(ReceivedFiles.Entry entry) {
+        if (missing.contains(entry.uri)) {
+            Toast.makeText(this, R.string.received_files_missing, Toast.LENGTH_SHORT).show();
+            return;
+        }
         try {
             startActivity(ReceivedFiles.openIntent(entry));
         }
@@ -127,34 +161,33 @@ public class ReceivedFilesActivity extends BaseActivity {
     }
 
     private void showActions(ReceivedFiles.Entry entry) {
-        new AlertDialog.Builder(this)
-                .setTitle(entry.name)
-                .setItems(new String[]{
-                        getString(R.string.received_files_open),
-                        getString(R.string.received_files_share),
-                        getString(R.string.received_files_delete)}, (dialog, which) -> {
-                    if (which == 0) {
-                        open(entry);
-                    }
-                    else if (which == 1) {
-                        startActivity(ReceivedFiles.shareIntent(entry));
-                    }
-                    else {
-                        confirmDelete(entry);
-                    }
-                })
-                .show();
+        AppDialog.showOptions(this, entry.name, new CharSequence[]{
+                getString(R.string.received_files_open),
+                getString(R.string.received_files_share),
+                getString(R.string.received_files_delete)}, which -> {
+            if (which == 0) {
+                open(entry);
+            }
+            else if (which == 1) {
+                startActivity(ReceivedFiles.shareIntent(entry));
+            }
+            else if (which == 2) {
+                AppDialog.showConfirm(this, entry.name, getString(R.string.received_files_delete_confirm),
+                        getString(R.string.received_files_delete), true,
+                        () -> ReceivedFiles.delete(this, entry), null);
+            }
+        });
     }
 
-    private void confirmDelete(ReceivedFiles.Entry entry) {
-        new AlertDialog.Builder(this)
-                .setTitle(entry.name)
-                .setMessage(R.string.received_files_delete_confirm)
-                .setNegativeButton(R.string.dialog_action_cancel, null)
-                .setPositiveButton(R.string.received_files_delete, (dialog, which) -> {
-                    ReceivedFiles.delete(this, entry);
-                    refresh();
-                })
-                .show();
+    // Forgets the files other apps moved or deleted; the list updates through the listener
+    private void cleanUp() {
+        if (missing.isEmpty()) {
+            Toast.makeText(this, R.string.received_files_clean_none, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        List<String> uris = new ArrayList<>(missing);
+        AppDialog.showConfirm(this, getString(R.string.received_files_clean),
+                getString(R.string.received_files_clean_confirm, uris.size()), getString(R.string.received_files_clean),
+                false, () -> ReceivedFiles.forget(this, uris), null);
     }
 }

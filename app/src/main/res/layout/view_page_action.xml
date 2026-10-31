@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A round button in the header of the file transfer screens -->
+<ImageButton xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="@dimen/home_header_action_size"
+    android:layout_height="@dimen/home_header_action_size"
+    android:layout_marginStart="@dimen/home_header_action_gap"
+    android:background="@drawable/bg_home_circle_button"
+    android:focusable="true"
+    android:padding="11dp"
+    android:scaleType="centerInside" />

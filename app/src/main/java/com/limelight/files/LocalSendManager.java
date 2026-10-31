@@ -48,17 +48,35 @@ public final class LocalSendManager {
     // SharedPreferences only holds listeners weakly, so keep a reference
     private final SharedPreferences.OnSharedPreferenceChangeListener prefListener = this::onPreferenceChanged;
     private WifiManager.MulticastLock multicastLock;
-    private boolean started;
+    // Read without the lock, so screens never wait for the Go library to start or stop
+    private volatile boolean started;
+    // Who the files being received come from: the server takes one transfer at a time
+    private volatile String sender = "";
 
     private final LocalSendBridge.Receiver receiver = new LocalSendBridge.Receiver() {
         @Override
         public boolean accept(String offerJson) {
-            return prefs.getBoolean(PREF_AUTO_ACCEPT, false) || askToAccept(offerJson);
+            JSONObject offer;
+            try {
+                offer = new JSONObject(offerJson);
+            }
+            catch (JSONException e) {
+                LimeLog.warning("Unreadable LocalSend offer: " + e.getMessage());
+                offer = new JSONObject();
+            }
+            JSONObject from = offer.optJSONObject("sender");
+            String alias = from != null ? from.optString("alias") : "";
+            boolean accepted = prefs.getBoolean(PREF_AUTO_ACCEPT, false) || askToAccept(alias, offer.optJSONArray("files"));
+            if (accepted) {
+                sender = alias;
+            }
+            return accepted;
         }
 
         @Override
         public void save(String token, String name, String fileType, long size) throws Exception {
-            ReceivedFiles.Entry entry = ReceivedFiles.save(appContext, name, size, fd -> bridge.writeUpload(token, fd));
+            ReceivedFiles.Entry entry = ReceivedFiles.save(appContext, name, size, ReceivedFiles.VIA_LOCALSEND, sender,
+                    fd -> bridge.writeUpload(token, fd));
             ReceivedFiles.notifyReceived(appContext, entry);
         }
     };
@@ -106,7 +124,7 @@ public final class LocalSendManager {
         return prefs.getBoolean(PREF_ENABLED, false);
     }
 
-    public synchronized boolean isRunning() {
+    public boolean isRunning() {
         return started;
     }
 
@@ -175,26 +193,19 @@ public final class LocalSendManager {
         }
     }
 
-    private boolean askToAccept(String offerJson) {
-        try {
-            JSONObject offer = new JSONObject(offerJson);
-            JSONArray files = offer.optJSONArray("files");
-            int count = files != null ? files.length() : 0;
-            long total = 0;
-            for (int i = 0; i < count; i++) {
-                total += files.getJSONObject(i).optLong("size");
+    private boolean askToAccept(String alias, JSONArray files) {
+        int count = files != null ? files.length() : 0;
+        long total = 0;
+        for (int i = 0; i < count; i++) {
+            JSONObject file = files.optJSONObject(i);
+            if (file != null) {
+                total += file.optLong("size");
             }
-            JSONObject sender = offer.optJSONObject("sender");
-            String name = sender != null ? sender.optString("alias") : "";
-            return LocalSendPrompt.ask(appContext,
-                    appContext.getString(R.string.localsend_prompt_title, name),
-                    appContext.getString(R.string.localsend_prompt_text, count, Formatter.formatShortFileSize(appContext, total)),
-                    ACCEPT_TIMEOUT_MS);
         }
-        catch (JSONException e) {
-            LimeLog.warning("Unreadable LocalSend offer: " + e.getMessage());
-            return false;
-        }
+        return LocalSendPrompt.ask(appContext,
+                appContext.getString(R.string.localsend_prompt_title, alias),
+                appContext.getString(R.string.localsend_prompt_text, count, Formatter.formatShortFileSize(appContext, total)),
+                ACCEPT_TIMEOUT_MS);
     }
 
     /** The LocalSend devices heard from lately. */
@@ -208,8 +219,8 @@ public final class LocalSendManager {
             for (int i = 0; i < array.length(); i++) {
                 JSONObject device = array.getJSONObject(i);
                 devices.add(new Device(device.getString("alias"), device.optString("deviceModel"),
-                        device.getString("ip"), device.getInt("port"), device.optString("protocol", "https"),
-                        device.optString("fingerprint")));
+                        device.optString("deviceType"), device.getString("ip"), device.getInt("port"),
+                        device.optString("protocol", "https"), device.optString("fingerprint")));
             }
         }
         catch (JSONException e) {
@@ -245,6 +256,23 @@ public final class LocalSendManager {
             throw new IllegalStateException(appContext.getString(R.string.localsend_not_running));
         }
         bridge.addDevice(ip, 0);
+    }
+
+    /**
+     * Whether the device still answers: devices stay listed for minutes after they go away.
+     * Takes a few seconds when it doesn't answer, so not on the main thread.
+     */
+    public boolean isReachable(Device device) {
+        if (!isRunning()) {
+            return false;
+        }
+        try {
+            bridge.addDevice(device.ip, device.port);
+            return true;
+        }
+        catch (Exception e) {
+            return false;
+        }
     }
 
     void send(Device device, String filesJson, LocalSendBridge.Files files) throws Exception {
@@ -286,14 +314,18 @@ public final class LocalSendManager {
     public static final class Device {
         public final String alias;
         public final String deviceModel;
+        /** mobile, desktop, web, headless or server, as LocalSend names them; may be empty */
+        public final String deviceType;
         public final String ip;
         public final int port;
         public final String protocol;
         public final String fingerprint;
 
-        Device(String alias, String deviceModel, String ip, int port, String protocol, String fingerprint) {
+        Device(String alias, String deviceModel, String deviceType, String ip, int port, String protocol,
+               String fingerprint) {
             this.alias = alias;
             this.deviceModel = deviceModel;
+            this.deviceType = deviceType;
             this.ip = ip;
             this.port = port;
             this.protocol = protocol;

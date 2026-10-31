@@ -46,4 +46,6 @@ jobs:
         if: always()
         with:
           name: emulator-logcat
-          path: logcat*.txt
+          path: |
+            logcat*.txt
+            screen-*.png

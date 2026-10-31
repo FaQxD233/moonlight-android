@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_update_dialog_panel"
+    android:elevation="24dp"
+    android:orientation="vertical"
+    android:paddingLeft="18dp"
+    android:paddingTop="16dp"
+    android:paddingRight="18dp"
+    android:paddingBottom="18dp">
+
+    <TextView
+        android:id="@+id/tv_app_input_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textColor="#FFF7F7F2"
+        android:textSize="18sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/tv_app_input_message"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:lineSpacingExtra="3dp"
+        android:textColor="#FFC6CEDB"
+        android:textSize="12sp"
+        android:visibility="gone" />
+
+    <EditText
+        android:id="@+id/et_app_input"
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:layout_marginTop="12dp"
+        android:background="@drawable/bg_app_input"
+        android:imeOptions="actionDone"
+        android:importantForAutofill="no"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:singleLine="true"
+        android:textColor="#FFF7F7F2"
+        android:textColorHint="#80C6CEDB"
+        android:textSize="14sp" />
+
+    <TextView
+        android:id="@+id/tv_app_input_error"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:textColor="@color/home_warning"
+        android:textSize="11.5sp"
+        android:visibility="gone" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="14dp"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/btn_app_input_cancel"
+            android:layout_width="0dp"
+            android:layout_height="42dp"
+            android:layout_weight="1"
+            android:background="@drawable/bg_app_dialog_action"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:nextFocusRight="@id/btn_app_input_confirm"
+            android:text="@string/dialog_action_cancel"
+            android:textColor="#FF8792A3"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/btn_app_input_confirm"
+            android:layout_width="0dp"
+            android:layout_height="42dp"
+            android:layout_marginStart="10dp"
+            android:layout_weight="1"
+            android:background="@drawable/bg_app_dialog_primary"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:nextFocusLeft="@id/btn_app_input_cancel"
+            android:text="@string/dialog_action_confirm"
+            android:textColor="#FFF7F7F2"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+</LinearLayout>

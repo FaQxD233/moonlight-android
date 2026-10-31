@@ -186,6 +186,21 @@
                 android:textSize="11sp" />
 
             <Button
+                android:id="@+id/btn_pc_actions_send_files"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/ic_game_menu_btn_selector"
+                android:drawableStart="@drawable/ic_ft_transfer"
+                android:drawablePadding="6dp"
+                android:drawableEnd="@drawable/ic_axi_arrow"
+                android:gravity="left|center_vertical"
+                android:padding="10dp"
+                android:text="@string/pc_actions_send_files"
+                android:textSize="11sp"
+                android:visibility="gone" />
+
+            <Button
                 android:id="@+id/btn_pc_actions_network_test"
                 android:layout_width="match_parent"
                 android:layout_height="48dp"

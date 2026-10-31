@@ -224,7 +224,7 @@ public final class FileSendService extends Service {
         return resultNotification(job, sent, error);
     }
 
-    private static long size(ContentResolver resolver, Uri uri) throws IOException {
+    static long size(ContentResolver resolver, Uri uri) throws IOException {
         try (Cursor cursor = resolver.query(uri, new String[]{OpenableColumns.SIZE}, null, null, null)) {
             if (cursor != null && cursor.moveToFirst() && !cursor.isNull(0)) {
                 return cursor.getLong(0);
@@ -289,11 +289,11 @@ public final class FileSendService extends Service {
     }
 
     private PendingIntent openScreen() {
-        return PendingIntent.getActivity(this, 0, new Intent(this, ReceivedFilesActivity.class),
+        return PendingIntent.getActivity(this, 0, new Intent(this, FileTransferActivity.class),
                 PendingIntent.FLAG_IMMUTABLE);
     }
 
-    private static String displayName(ContentResolver resolver, Uri uri) {
+    static String displayName(ContentResolver resolver, Uri uri) {
         try (Cursor cursor = resolver.query(uri, new String[]{OpenableColumns.DISPLAY_NAME}, null, null, null)) {
             if (cursor != null && cursor.moveToFirst() && !cursor.isNull(0)) {
                 return cursor.getString(0);
@@ -345,7 +345,7 @@ public final class FileSendService extends Service {
             targetName = intent.getStringExtra(EXTRA_TARGET_NAME);
             targetId = intent.getStringExtra(EXTRA_TARGET_ID);
             String ip = intent.getStringExtra(EXTRA_IP);
-            device = ip == null ? null : new LocalSendManager.Device(targetName, "", ip,
+            device = ip == null ? null : new LocalSendManager.Device(targetName, "", "", ip,
                     intent.getIntExtra(EXTRA_PORT, 0), intent.getStringExtra(EXTRA_PROTOCOL),
                     intent.getStringExtra(EXTRA_FINGERPRINT));
             ClipData clip = intent.getClipData();

@@ -46,7 +46,8 @@ final class TaildropReceiver implements Runnable {
 
     private void save(String name, long size) {
         try {
-            ReceivedFiles.Entry entry = ReceivedFiles.save(context, name, size,
+            // Taildrop doesn't say who sent the file
+            ReceivedFiles.Entry entry = ReceivedFiles.save(context, name, size, ReceivedFiles.VIA_TAILSCALE, "",
                     fd -> tailnet.saveWaitingFile(name, fd));
             ReceivedFiles.notifyReceived(context, entry);
         }

@@ -144,24 +144,33 @@
             android:name=".StreamLogFilesActivity"
             android:launchMode="singleTask"
             android:theme="@style/AxiGamePlayTheme.GamePad" />
+        <!-- Tailscale and file transfer, from the home screen and the transfer notifications -->
+        <activity
+            android:name=".files.FileTransferActivity"
+            android:launchMode="singleTask"
+            android:theme="@style/FileTransferTheme" />
         <activity
             android:name=".files.ReceivedFilesActivity"
-            android:launchMode="singleTask"
-            android:theme="@style/AxiGamePlayTheme.GamePad" />
-        <!-- "Send to computer" in the share sheet of other apps -->
+            android:theme="@style/FileTransferTheme" />
         <activity
             android:name=".files.SendFilesActivity"
             android:label="@string/send_files_title"
-            android:exported="true"
             android:excludeFromRecents="true"
-            android:theme="@style/AxiGamePlayTheme.GamePad">
+            android:theme="@style/FileTransferTheme" />
+        <!-- "Send to computer" in the share sheet of other apps. Only this alias is exported, so
+             other apps can share files but can't start the screen's other modes. -->
+        <activity-alias
+            android:name=".files.ShareToComputer"
+            android:label="@string/send_files_title"
+            android:exported="true"
+            android:targetActivity=".files.SendFilesActivity">
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
                 <action android:name="android.intent.action.SEND_MULTIPLE" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="*/*" />
             </intent-filter>
-        </activity>
+        </activity-alias>
         <service
             android:name=".files.FileSendService"
             android:exported="false"

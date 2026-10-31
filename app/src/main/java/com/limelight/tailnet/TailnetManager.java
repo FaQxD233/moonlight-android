@@ -132,6 +132,11 @@ public final class TailnetManager {
         }
     }
 
+    /** Whether a start crashed the app (and turned the feature off) with no one shown the report yet. */
+    public boolean hasCrashReport() {
+        return prefs.getBoolean(PREF_CRASHED, false);
+    }
+
     /**
      * Go's crash output from the start that crashed the app (empty if none was captured, as
      * with native crashes), or null if it didn't crash. Reading it clears it.

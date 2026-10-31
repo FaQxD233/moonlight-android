@@ -76,7 +76,7 @@ public final class BackgroundReceiveService extends Service {
         PendingIntent stop = PendingIntent.getService(this, 0,
                 new Intent(this, BackgroundReceiveService.class).setAction(ACTION_STOP), PendingIntent.FLAG_IMMUTABLE);
         PendingIntent open = PendingIntent.getActivity(this, 0,
-                new Intent(this, ReceivedFilesActivity.class), PendingIntent.FLAG_IMMUTABLE);
+                new Intent(this, FileTransferActivity.class), PendingIntent.FLAG_IMMUTABLE);
         Notification notification = new Notification.Builder(this, CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.stat_sys_download_done)
                 .setContentTitle(getString(R.string.tailnet_background_title))

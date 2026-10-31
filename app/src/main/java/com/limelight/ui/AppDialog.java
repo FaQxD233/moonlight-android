@@ -13,12 +13,23 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
+import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import com.limelight.R;
 
 public final class AppDialog {
+    /** Told which option was picked, or -1 when the dialog was closed without one. */
+    public interface OptionCallback {
+        void onOption(int index);
+    }
+
+    /** Checks what was typed: returns a problem to show under the field, or null to close the dialog. */
+    public interface InputCallback {
+        CharSequence onInput(String text);
+    }
+
     private AppDialog() {
     }
 
@@ -128,6 +139,103 @@ public final class AppDialog {
             dialog.setOnCancelListener(ignored -> onCancel.run());
         }
         showAndSize(activity, dialog, 0.68f, 420);
+        return dialog;
+    }
+
+    /** A list of choices, such as the actions for a file. */
+    public static AlertDialog showOptions(Activity activity,
+                                          CharSequence title,
+                                          CharSequence[] options,
+                                          OptionCallback callback) {
+        if (!canShow(activity)) {
+            return null;
+        }
+
+        View content = LayoutInflater.from(activity).inflate(R.layout.dialog_app_options, null, false);
+        ((TextView) content.findViewById(R.id.tv_app_options_title)).setText(title);
+        LinearLayout list = content.findViewById(R.id.app_options_list);
+        View cancelView = content.findViewById(R.id.btn_app_options_cancel);
+
+        AlertDialog dialog = createDialog(activity, content, true);
+        int[] picked = {-1};
+        View[] actionViews = new View[options.length + 1];
+        for (int i = 0; i < options.length; i++) {
+            TextView optionView = (TextView) LayoutInflater.from(activity).inflate(R.layout.item_app_option, list, false);
+            optionView.setText(options[i]);
+            int index = i;
+            optionView.setOnClickListener(v -> {
+                picked[0] = index;
+                dialog.dismiss();
+            });
+            list.addView(optionView);
+            actionViews[i] = optionView;
+        }
+        cancelView.setOnClickListener(v -> dialog.dismiss());
+        actionViews[options.length] = cancelView;
+        // After the dialog is gone, so the callback can open another screen or dialog
+        dialog.setOnDismissListener(ignored -> callback.onOption(picked[0]));
+
+        showCustomDialog(activity, dialog, 0.68f, 400, actionViews[0], cancelView, actionViews);
+        return dialog;
+    }
+
+    /** One line of text to type, such as an address or a name. */
+    public static AlertDialog showInput(Activity activity,
+                                        CharSequence title,
+                                        CharSequence message,
+                                        CharSequence hint,
+                                        CharSequence initialText,
+                                        int inputType,
+                                        InputCallback callback) {
+        if (!canShow(activity)) {
+            return null;
+        }
+
+        View content = LayoutInflater.from(activity).inflate(R.layout.dialog_app_input, null, false);
+        ((TextView) content.findViewById(R.id.tv_app_input_title)).setText(title);
+        TextView messageView = content.findViewById(R.id.tv_app_input_message);
+        if (!TextUtils.isEmpty(message)) {
+            messageView.setText(message);
+            messageView.setVisibility(View.VISIBLE);
+        }
+        EditText input = content.findViewById(R.id.et_app_input);
+        input.setInputType(inputType);
+        input.setHint(hint);
+        if (!TextUtils.isEmpty(initialText)) {
+            input.setText(initialText);
+            input.setSelection(input.length());
+        }
+        TextView errorView = content.findViewById(R.id.tv_app_input_error);
+        View cancelView = content.findViewById(R.id.btn_app_input_cancel);
+        View confirmView = content.findViewById(R.id.btn_app_input_confirm);
+
+        AlertDialog dialog = createDialog(activity, content, true);
+        Runnable submit = () -> {
+            CharSequence problem = callback.onInput(input.getText().toString());
+            if (problem == null) {
+                dialog.dismiss();
+            }
+            else {
+                errorView.setText(problem);
+                errorView.setVisibility(View.VISIBLE);
+            }
+        };
+        confirmView.setOnClickListener(v -> submit.run());
+        cancelView.setOnClickListener(v -> dialog.dismiss());
+        input.setOnEditorActionListener((v, actionId, event) -> {
+            // A hardware Enter reports both its down and its up
+            if (event == null || event.getAction() == KeyEvent.ACTION_DOWN) {
+                submit.run();
+            }
+            return true;
+        });
+
+        Window window = dialog.getWindow();
+        if (window != null) {
+            window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE
+                    | WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
+        }
+        showCustomDialog(activity, dialog, 0.68f, 440, input, cancelView, cancelView, confirmView);
         return dialog;
     }
 

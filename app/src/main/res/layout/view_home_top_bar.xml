@@ -6,11 +6,16 @@
     android:gravity="center_vertical"
     android:orientation="horizontal">
 
+    <!-- Shrinks instead of being cut off when the file transfer button makes the bar crowded -->
     <TextView
         android:id="@+id/tx_label"
         android:layout_width="0dp"
         android:layout_height="match_parent"
         android:layout_weight="1"
+        android:autoSizeMaxTextSize="@dimen/home_title_text_size"
+        android:autoSizeMinTextSize="15sp"
+        android:autoSizeStepGranularity="1sp"
+        android:autoSizeTextType="uniform"
         android:ellipsize="end"
         android:gravity="center_vertical"
         android:maxLines="1"
@@ -60,5 +65,37 @@
         android:padding="10dp"
         android:scaleType="centerInside"
         android:src="@drawable/icon_app_stadia_controller" />
+
+    <!-- Tailscale and file transfer, in builds with built-in Tailscale; the dot marks new files -->
+    <FrameLayout
+        android:id="@+id/fileTransferButtonFrame"
+        android:layout_width="@dimen/home_header_action_size"
+        android:layout_height="@dimen/home_header_action_size"
+        android:layout_marginStart="@dimen/home_header_action_gap"
+        android:visibility="gone">
+
+        <ImageButton
+            android:id="@+id/fileTransferButton"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@drawable/bg_home_circle_button"
+            android:contentDescription="@string/file_transfer_title"
+            android:focusable="true"
+            android:nextFocusDown="@id/hostCarousel"
+            android:nextFocusLeft="@id/axiButton"
+            android:padding="10dp"
+            android:scaleType="centerInside"
+            android:src="@drawable/ic_ft_transfer" />
+
+        <View
+            android:id="@+id/fileTransferDot"
+            android:layout_width="10dp"
+            android:layout_height="10dp"
+            android:layout_gravity="top|end"
+            android:layout_marginTop="2dp"
+            android:layout_marginEnd="2dp"
+            android:background="@drawable/bg_home_badge_dot"
+            android:visibility="gone" />
+    </FrameLayout>
 
 </LinearLayout>
