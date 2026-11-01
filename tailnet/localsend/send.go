@@ -64,7 +64,7 @@ func Send(ip string, port int, protocol, fp, filesJSON string, files Files) erro
 		req.Files[id] = fileInfo{ID: id, FileName: f.Name, Size: f.Size, FileType: f.Type}
 	}
 	base := baseURL(protocol, ip, port)
-	client := httpClient(fp)
+	client := s.httpClient(fp)
 	var prepared prepareUploadResponse
 	switch status, err := postJSON(ctx, client, base+"prepare-upload", req, &prepared); {
 	case err != nil:

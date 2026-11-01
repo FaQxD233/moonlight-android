@@ -107,7 +107,7 @@ func (s *server) register(ip string, port int, protocol, fp string, timeout time
 		return peer, err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	resp, err := httpClient(fp).Do(req)
+	resp, err := s.httpClient(fp).Do(req)
 	if err != nil {
 		return peer, err
 	}
@@ -128,8 +128,11 @@ func (s *server) register(ip string, port int, protocol, fp string, timeout time
 }
 
 // httpClient talks to LocalSend devices, whose certificates are self-signed:
-// with fp set, the certificate must have that fingerprint instead.
-func httpClient(fp string) *http.Client {
+// with fp set, the certificate must have that fingerprint instead. It presents
+// this device's certificate: LocalSend (from its Rust core on) refuses senders
+// without one ("tls: certificate required"), and tells who sends by it.
+func (s *server) httpClient(fp string) *http.Client {
+	cert := s.cert
 	return &http.Client{Transport: &http.Transport{
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: true,
@@ -138,6 +141,12 @@ func httpClient(fp string) *http.Client {
 					return errors.New("the device's certificate doesn't match its fingerprint")
 				}
 				return nil
+			},
+			// Always, unlike Certificates: LocalSend asks for a certificate issued by
+			// "LocalSend User" encoded as a UTF8String, and ours, made by Go, has the
+			// same name as a PrintableString, so Go would find it unacceptable and send none
+			GetClientCertificate: func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
+				return &cert, nil
 			},
 		},
 		DialContext:         (&net.Dialer{Timeout: 5 * time.Second}).DialContext,

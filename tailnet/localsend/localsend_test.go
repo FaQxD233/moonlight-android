@@ -4,9 +4,16 @@ package localsend
 
 import (
 	"bytes"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
 	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/asn1"
 	"encoding/json"
 	"errors"
+	"math/big"
 	"net"
 	"net/http"
 	"os"
@@ -16,6 +23,7 @@ import (
 	"sync"
 	"syscall"
 	"testing"
+	"time"
 )
 
 // testReceiver accepts or declines every offer and keeps what it receives.
@@ -76,8 +84,15 @@ func (f *testFiles) Open(index int) (int, error) {
 
 func (f *testFiles) Sent(index int, bytes int64) { f.sent[index] = bytes }
 
-// startTestServer runs a LocalSend server on a loopback port as this device.
-func startTestServer(t *testing.T, recv Receiver) *server {
+// testServer is a LocalSend server on a loopback port, as this device, that takes
+// connections the way LocalSend's own server does; see localSendTLS.
+type testServer struct {
+	*server
+	mu        sync.Mutex
+	presented []string // fingerprints of the client certificates presented
+}
+
+func startTestServer(t *testing.T, recv Receiver) *testServer {
 	t.Helper()
 	cert, err := loadOrCreateCert(t.TempDir())
 	if err != nil {
@@ -87,10 +102,14 @@ func startTestServer(t *testing.T, recv Receiver) *server {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := newServer("Test phone", "Go", cert, ln.Addr().(*net.TCPAddr).Port, recv)
-	go s.http.Serve(tls.NewListener(ln, &tls.Config{Certificates: []tls.Certificate{cert}}))
+	s := &testServer{server: newServer("Test phone", "Go", cert, ln.Addr().(*net.TCPAddr).Port, recv)}
+	go s.http.Serve(tls.NewListener(ln, localSendTLS(t, cert, func(fp string) {
+		s.mu.Lock()
+		s.presented = append(s.presented, fp)
+		s.mu.Unlock()
+	})))
 	mu.Lock()
-	srv = s
+	srv = s.server
 	mu.Unlock()
 	t.Cleanup(func() {
 		mu.Lock()
@@ -99,6 +118,44 @@ func startTestServer(t *testing.T, recv Receiver) *server {
 		s.http.Close()
 	})
 	return s
+}
+
+// localSendTLS is how LocalSend's own server (rustls, from its Rust core on) takes
+// connections: senders must present a certificate, and the certificate request names
+// LocalSend's own certificate, "LocalSend User" as a UTF8String, as the issuer to use.
+// presented hears the fingerprint of each certificate presented.
+func localSendTLS(t *testing.T, cert tls.Certificate, presented func(fp string)) *tls.Config {
+	t.Helper()
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	name, err := asn1.Marshal(pkix.RDNSequence{{{Type: asn1.ObjectIdentifier{2, 5, 4, 3},
+		Value: asn1.RawValue{Tag: asn1.TagUTF8String, Bytes: []byte("LocalSend User")}}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	template := &x509.Certificate{SerialNumber: big.NewInt(1), RawSubject: name,
+		NotBefore: time.Now().Add(-time.Hour), NotAfter: time.Now().Add(time.Hour)}
+	der, err := x509.CreateCertificate(rand.Reader, template, template, &key.PublicKey, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	issuer, err := x509.ParseCertificate(der)
+	if err != nil {
+		t.Fatal(err)
+	}
+	issuers := x509.NewCertPool()
+	issuers.AddCert(issuer)
+	return &tls.Config{
+		Certificates: []tls.Certificate{cert},
+		ClientAuth:   tls.RequireAnyClientCert,
+		ClientCAs:    issuers,
+		VerifyPeerCertificate: func(raw [][]byte, _ [][]*x509.Certificate) error {
+			presented(fingerprint(raw[0]))
+			return nil
+		},
+	}
 }
 
 func writeTestFiles(t *testing.T, contents map[string]string) (paths []string, filesJSON string) {
@@ -141,6 +198,18 @@ func TestSendAndReceive(t *testing.T) {
 	if len(recv.offers) != 1 || !strings.Contains(recv.offers[0], `"alias":"Test phone"`) {
 		t.Errorf("offers = %q", recv.offers)
 	}
+	// The sender presented this device's certificate on every connection
+	s.mu.Lock()
+	presented := s.presented
+	s.mu.Unlock()
+	if len(presented) == 0 {
+		t.Error("no client certificate was presented")
+	}
+	for _, fp := range presented {
+		if fp != s.info.Fingerprint {
+			t.Errorf("presented certificate %s, want this device's %s", fp, s.info.Fingerprint)
+		}
+	}
 	// The session is over, so another transfer may start
 	if s.session != nil {
 		t.Error("session still open after every file arrived")
@@ -171,7 +240,7 @@ func TestSendChecksFingerprint(t *testing.T) {
 
 func TestUploadNeedsToken(t *testing.T) {
 	s := startTestServer(t, &testReceiver{accept: true})
-	resp, err := httpClient("").Post(baseURL("https", "127.0.0.1", s.info.Port)+"upload?sessionId=x&fileId=0&token=y",
+	resp, err := s.httpClient("").Post(baseURL("https", "127.0.0.1", s.info.Port)+"upload?sessionId=x&fileId=0&token=y",
 		"application/octet-stream", strings.NewReader("data"))
 	if err != nil {
 		t.Fatal(err)
@@ -186,7 +255,7 @@ func TestRegister(t *testing.T) {
 	s := startTestServer(t, &testReceiver{accept: true})
 	peer := deviceInfo{Alias: "Desktop", Version: "2.1", DeviceType: "desktop", Fingerprint: "PEER", Port: 53317, Protocol: "https"}
 	body, _ := json.Marshal(peer)
-	resp, err := httpClient(s.info.Fingerprint).Post(baseURL("https", "127.0.0.1", s.info.Port)+"register",
+	resp, err := s.httpClient(s.info.Fingerprint).Post(baseURL("https", "127.0.0.1", s.info.Port)+"register",
 		"application/json", bytes.NewReader(body))
 	if err != nil {
 		t.Fatal(err)

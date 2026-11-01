@@ -45,7 +45,9 @@ func current() *server {
 }
 
 type server struct {
-	info  deviceInfo
+	info deviceInfo
+	// This device's certificate: the server's, and the one it presents as a client
+	cert  tls.Certificate
 	recv  Receiver
 	http  *http.Server
 	mcast *net.UDPConn
@@ -113,6 +115,7 @@ func newServer(alias, deviceModel string, cert tls.Certificate, port int, recv R
 			Port:        port,
 			Protocol:    "https",
 		},
+		cert:    cert,
 		recv:    recv,
 		devices: map[string]*device{},
 		uploads: map[string]*upload{},
